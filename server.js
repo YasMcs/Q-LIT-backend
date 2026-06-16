@@ -5,6 +5,7 @@ import { errorHandler } from './src/middlewares/errorHandler.js';
 import healthRoutes from './src/routes/health.routes.js';
 import evaluationRoutes from './src/routes/evaluation.routes.js';
 import classroomRoutes from './src/routes/classroom.routes.js';
+import practiceRoutes from './src/routes/practice.routes.js';
 import userRoutes from './src/routes/user.routes.js';
 
 dotenv.config();
@@ -20,6 +21,7 @@ app.use(express.json());
 app.use('/api/health', healthRoutes);
 app.use('/api/evaluations', evaluationRoutes);
 app.use('/api/classrooms', classroomRoutes);
+app.use('/api/practices', practiceRoutes);
 app.use('/api/users', userRoutes);
 
 // Manejador global de errores (debe ir al final)

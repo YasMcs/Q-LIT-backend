@@ -1,0 +1,25 @@
+import { Router } from 'express';
+import * as practiceController from '../controllers/practice.controller.js';
+import * as submissionController from '../controllers/submission.controller.js';
+import * as executionController from '../controllers/execution.controller.js';
+import { bffAuthMiddleware } from '../middlewares/auth.middleware.js';
+
+const router = Router();
+
+// Todas las rutas de prácticas están protegidas
+router.use(bffAuthMiddleware);
+
+// Create a new practice
+router.post('/', practiceController.createPractice);
+
+// Update a practice
+router.put('/:id', practiceController.updatePractice);
+router.get('/classroom/:classroomId', practiceController.getPracticesByClassroom);
+
+// Ruta para iniciar una práctica (Estudiante)
+router.post('/:practiceId/start', submissionController.startPractice);
+
+// Execute SQL query (Sandbox Mock)
+router.post('/:practiceId/execute', executionController.executePracticeQuery);
+
+export default router;

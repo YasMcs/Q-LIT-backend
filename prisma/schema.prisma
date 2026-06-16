@@ -66,6 +66,7 @@ model VerificationToken {
 model Classroom {
   id          String   @id @default(cuid())
   name        String
+  group       String?
   inviteCode  String   @unique
   createdAt   DateTime @default(now())
   

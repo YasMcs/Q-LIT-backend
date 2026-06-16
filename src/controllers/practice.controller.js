@@ -1,0 +1,159 @@
+import { prisma } from '../config/db.js';
+
+export const createPractice = async (req, res, next) => {
+  try {
+    const { 
+      title, 
+      description, 
+      objective, 
+      requiredFunctionsStr,
+      maxScore, 
+      dueDate, 
+      dueTime, 
+      activeDb, 
+      criteria, 
+      classroomId 
+    } = req.body;
+
+    if (!title || !classroomId) {
+      return res.status(400).json({
+        error: {
+          code: 'BAD_REQUEST',
+          message: 'Faltan parámetros requeridos (título y clase)'
+        }
+      });
+    }
+
+    // Calcular deadline
+    let deadline = null;
+    if (dueDate) {
+      const time = dueTime || '23:59';
+      deadline = new Date(`${dueDate}T${time}:00Z`);
+    }
+
+    // Combinar descripción y objetivo
+    const fullDescription = `${description || ''}\n\nObjetivo: ${objective || ''}`.trim();
+
+    // Parse required functions
+    const keywords = requiredFunctionsStr 
+      ? requiredFunctionsStr.split(',').map(s => s.trim().toUpperCase()).filter(Boolean)
+      : [];
+
+    // Guardar en Prisma
+    const newPractice = await prisma.practice.create({
+      data: {
+        title,
+        description: fullDescription,
+        requiredFunctions: { db: activeDb, keywords },
+        totalPoints: maxScore,
+        deadline,
+        classroomId,
+        checklistItems: {
+          create: criteria.map(c => ({
+            criterion: c.text,
+            maxPoints: c.points
+          }))
+        }
+      },
+      include: {
+        checklistItems: true
+      }
+    });
+
+    res.status(201).json(newPractice);
+  } catch (error) {
+    next(error);
+  }
+};
+
+export const updatePractice = async (req, res, next) => {
+  try {
+    const { id } = req.params;
+    const { 
+      title, 
+      description, 
+      objective, 
+      requiredFunctionsStr,
+      maxScore, 
+      dueDate, 
+      dueTime, 
+      activeDb, 
+      criteria, 
+      forceRegenerate 
+    } = req.body;
+
+    const existingPractice = await prisma.practice.findUnique({
+      where: { id }
+    });
+
+    if (!existingPractice) {
+      return res.status(404).json({ error: { message: 'Práctica no encontrada' } });
+    }
+
+    let deadline = existingPractice.deadline;
+    if (dueDate) {
+      const time = dueTime || '23:59';
+      deadline = new Date(`${dueDate}T${time}:00Z`);
+    }
+
+    const fullDescription = description !== undefined && objective !== undefined 
+      ? `${description || ''}\n\nObjetivo: ${objective || ''}`.trim()
+      : existingPractice.description;
+
+    const keywords = requiredFunctionsStr !== undefined
+      ? requiredFunctionsStr.split(',').map(s => s.trim().toUpperCase()).filter(Boolean)
+      : existingPractice.requiredFunctions.keywords;
+
+    const db = activeDb !== undefined ? activeDb : existingPractice.requiredFunctions.db;
+
+    const updatedPractice = await prisma.practice.update({
+      where: { id },
+      data: {
+        title: title !== undefined ? title : existingPractice.title,
+        description: fullDescription,
+        requiredFunctions: { db, keywords },
+        totalPoints: maxScore !== undefined ? maxScore : existingPractice.totalPoints,
+        deadline,
+      }
+    });
+
+    let deletedSubmissionsCount = 0;
+    if (forceRegenerate) {
+      const deleteResult = await prisma.submission.deleteMany({
+        where: {
+          practiceId: id,
+          status: "IN_PROGRESS"
+        }
+      });
+      deletedSubmissionsCount = deleteResult.count;
+    }
+
+    return res.status(200).json({
+      status: "success",
+      data: {
+        practice: updatedPractice,
+        restartedSubmissions: deletedSubmissionsCount
+      }
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+export const getPracticesByClassroom = async (req, res, next) => {
+  try {
+    const { classroomId } = req.params;
+
+    const practices = await prisma.practice.findMany({
+      where: { classroomId },
+      include: {
+        checklistItems: true
+      },
+      orderBy: { createdAt: 'desc' }
+    });
+
+    res.json(practices);
+  } catch (error) {
+    next(error);
+  }
+};
