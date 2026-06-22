@@ -7,6 +7,7 @@ const router = Router();
 // Rutas de Docente (sin middleware temporalmente para no romper la app actual)
 router.get('/', classroomController.getClassroomsByTeacher);
 router.post('/', classroomController.createClassroom);
+router.delete('/:id', classroomController.archiveClassroom);
 
 // Rutas de Alumno (protegidas con BFF Middleware)
 router.post('/join', bffAuthMiddleware, classroomController.joinClassroom);

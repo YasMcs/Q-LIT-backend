@@ -14,7 +14,10 @@ export const getClassroomsByTeacher = async (req, res, next) => {
     }
 
     const classrooms = await prisma.classroom.findMany({
-      where: { teacherId },
+      where: { 
+        teacherId,
+        isArchived: false
+      },
       orderBy: { createdAt: 'desc' },
       include: {
         _count: {
@@ -132,7 +135,12 @@ export const getClassroomsByStudent = async (req, res, next) => {
     const userId = req.user?.id;
 
     const enrollments = await prisma.enrollment.findMany({
-      where: { userId },
+      where: { 
+        userId,
+        classroom: {
+          isArchived: false
+        }
+      },
       include: {
         classroom: {
           include: {
@@ -151,6 +159,37 @@ export const getClassroomsByStudent = async (req, res, next) => {
     }));
 
     res.status(200).json({ data: formattedClassrooms });
+  } catch (error) {
+    next(error);
+  }
+};
+
+export const archiveClassroom = async (req, res, next) => {
+  try {
+    const { id } = req.params;
+
+    const classroom = await prisma.classroom.findUnique({
+      where: { id }
+    });
+
+    if (!classroom) {
+      return res.status(404).json({
+        error: {
+          code: 'NOT_FOUND',
+          message: 'Clase/Laboratorio no encontrado'
+        }
+      });
+    }
+
+    await prisma.classroom.update({
+      where: { id },
+      data: { isArchived: true }
+    });
+
+    res.status(200).json({
+      status: "success",
+      message: "Clase archivada exitosamente"
+    });
   } catch (error) {
     next(error);
   }

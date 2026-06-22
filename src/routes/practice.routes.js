@@ -12,9 +12,19 @@ router.use(bffAuthMiddleware);
 // Create a new practice
 router.post('/', practiceController.createPractice);
 
+// Get a specific practice
+router.get('/:id', practiceController.getPracticeById);
+
 // Update a practice
 router.put('/:id', practiceController.updatePractice);
+
+// Delete a practice
+router.delete('/:id', practiceController.deletePractice);
+
 router.get('/classroom/:classroomId', practiceController.getPracticesByClassroom);
+
+// Get all submissions for a practice
+router.get('/:id/submissions', submissionController.getPracticeSubmissions);
 
 // Ruta para iniciar una práctica (Estudiante)
 router.post('/:practiceId/start', submissionController.startPractice);

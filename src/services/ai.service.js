@@ -30,7 +30,7 @@ export const evaluateSqlSubmission = async (studentSqlCode, practiceObjective, c
           type: Type.OBJECT,
           properties: {
             checklistItemId: {
-              type: Type.INTEGER,
+              type: Type.STRING,
               description: "El ID del criterio evaluado"
             },
             aiComplies: {

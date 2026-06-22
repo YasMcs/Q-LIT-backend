@@ -122,7 +122,7 @@ export const updatePractice = async (req, res, next) => {
       const deleteResult = await prisma.submission.deleteMany({
         where: {
           practiceId: id,
-          status: "IN_PROGRESS"
+          reviewStatus: "pendiente"
         }
       });
       deletedSubmissionsCount = deleteResult.count;
@@ -153,6 +153,62 @@ export const getPracticesByClassroom = async (req, res, next) => {
     });
 
     res.json(practices);
+  } catch (error) {
+    next(error);
+  }
+};
+
+export const getPracticeById = async (req, res, next) => {
+  try {
+    const { id } = req.params;
+
+    const practice = await prisma.practice.findUnique({
+      where: { id },
+      include: {
+        checklistItems: true
+      }
+    });
+
+    if (!practice) {
+      return res.status(404).json({
+        error: {
+          code: 'NOT_FOUND',
+          message: 'Práctica no encontrada'
+        }
+      });
+    }
+
+    res.status(200).json(practice);
+  } catch (error) {
+    next(error);
+  }
+};
+
+export const deletePractice = async (req, res, next) => {
+  try {
+    const { id } = req.params;
+
+    const practice = await prisma.practice.findUnique({
+      where: { id }
+    });
+
+    if (!practice) {
+      return res.status(404).json({
+        error: {
+          code: 'NOT_FOUND',
+          message: 'Práctica no encontrada'
+        }
+      });
+    }
+
+    await prisma.practice.delete({
+      where: { id }
+    });
+
+    res.status(200).json({
+      status: "success",
+      message: "Práctica eliminada exitosamente"
+    });
   } catch (error) {
     next(error);
   }

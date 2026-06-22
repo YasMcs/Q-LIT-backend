@@ -69,3 +69,62 @@ export const startPractice = async (req, res, next) => {
     next(error);
   }
 };
+
+export const getPracticeSubmissions = async (req, res, next) => {
+  try {
+    const { id: practiceId } = req.params;
+
+    const submissions = await prisma.submission.findMany({
+      where: { practiceId },
+      include: {
+        user: {
+          select: {
+            id: true,
+            name: true
+          }
+        },
+        evaluations: {
+          include: {
+            checklistItem: true
+          }
+        }
+      }
+    });
+
+    const formattedSubmissions = submissions.map(sub => {
+      let score = 0;
+      sub.evaluations.forEach(ev => {
+        const complies = ev.teacherComplies !== null 
+          ? ev.teacherComplies 
+          : ev.aiComplies;
+        
+        if (complies && ev.checklistItem) {
+          score += ev.checklistItem.maxPoints;
+        }
+      });
+
+      let status = "IN_PROGRESS";
+      if (sub.reviewStatus === "calificada") {
+        status = "COMPLETED";
+      } else if (sub.reviewStatus === "pendiente") {
+        status = "PENDING";
+      }
+
+      return {
+        submissionId: sub.id,
+        studentName: sub.user?.name || "Estudiante",
+        studentId: sub.user?.id || sub.userId,
+        status,
+        score,
+        submittedAt: sub.submittedAt
+      };
+    });
+
+    res.status(200).json({
+      status: "success",
+      data: formattedSubmissions
+    });
+  } catch (error) {
+    next(error);
+  }
+};
