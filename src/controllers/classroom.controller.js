@@ -2,7 +2,7 @@ import { prisma } from '../config/db.js';
 
 export const getClassroomsByTeacher = async (req, res, next) => {
   try {
-    const { teacherId } = req.query;
+    const { teacherId, archived } = req.query;
 
     if (!teacherId) {
       return res.status(400).json({
@@ -13,10 +13,12 @@ export const getClassroomsByTeacher = async (req, res, next) => {
       });
     }
 
+    const showArchived = archived === 'true';
+
     const classrooms = await prisma.classroom.findMany({
       where: { 
         teacherId,
-        isArchived: false
+        isArchived: showArchived
       },
       orderBy: { createdAt: 'desc' },
       include: {
