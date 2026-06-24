@@ -196,3 +196,46 @@ export const archiveClassroom = async (req, res, next) => {
     next(error);
   }
 };
+
+export const updateClassroom = async (req, res, next) => {
+  try {
+    const { id } = req.params;
+    const { name, group, isArchived } = req.body;
+
+    const classroom = await prisma.classroom.findUnique({
+      where: { id }
+    });
+
+    if (!classroom) {
+      return res.status(404).json({
+        error: {
+          code: 'NOT_FOUND',
+          message: 'Clase/Laboratorio no encontrado'
+        }
+      });
+    }
+
+    const updated = await prisma.classroom.update({
+      where: { id },
+      data: {
+        ...(name !== undefined && { name }),
+        ...(group !== undefined && { group }),
+        ...(isArchived !== undefined && { isArchived })
+      }
+    });
+
+    res.status(200).json({
+      status: "success",
+      data: {
+        id: updated.id,
+        title: updated.name,
+        group: updated.group || updated.inviteCode,
+        inviteCode: updated.inviteCode,
+        isArchived: updated.isArchived
+      }
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
