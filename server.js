@@ -17,12 +17,15 @@ const PORT = process.env.PORT || 4000;
 app.use(cors());
 app.use(express.json());
 
+import catalogRoutes from './src/routes/catalog.routes.js';
+
 // Rutas
 app.use('/api/health', healthRoutes);
 app.use('/api/evaluations', evaluationRoutes);
 app.use('/api/classrooms', classroomRoutes);
 app.use('/api/practices', practiceRoutes);
 app.use('/api/users', userRoutes);
+app.use('/api/catalogs', catalogRoutes);
 
 // Manejador global de errores (debe ir al final)
 app.use(errorHandler);

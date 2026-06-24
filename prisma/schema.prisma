@@ -122,6 +122,7 @@ model Submission {
   id                  String   @id @default(cuid())
   studentSqlCode      String?  @db.Text
   generatedStatement  String?  @db.Text // El enunciado único generado por la IA
+  setupSql            String?  @db.Text // El DML generado por la IA para inyectar en la DB
   reviewStatus        String   @default("pendiente") // pendiente, calificada, no_entregada
   submittedAt         DateTime @default(now())
 

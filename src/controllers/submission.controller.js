@@ -29,18 +29,29 @@ export const startPractice = async (req, res, next) => {
       // 1. Llamar a la IA para generar el problema
       const functionsStrList = practice.requiredFunctions?.keywords || [];
       const activeDb = practice.requiredFunctions?.db || "punto_venta_db";
-      const generatedStatement = await generateUniqueProblem(
+      const generatedJsonStr = await generateUniqueProblem(
         practice.description, 
         functionsStrList,
         activeDb
       );
+
+      let statementText = generatedJsonStr;
+      let setupSql = null;
+      try {
+        const parsed = JSON.parse(generatedJsonStr);
+        statementText = parsed.historia;
+        setupSql = parsed.setup_sql;
+      } catch (e) {
+        console.error("Error parseando respuesta de Gemini JSON:", e);
+      }
 
       // 2. Crear la submission con estado "pendiente"
       submission = await prisma.submission.create({
         data: {
           userId,
           practiceId,
-          generatedStatement,
+          generatedStatement: statementText,
+          setupSql: setupSql,
           reviewStatus: "pendiente"
         }
       });

@@ -1,60 +1,67 @@
-export const executeMockQuery = async (sqlQuery, activeDb) => {
-  const upperQuery = sqlQuery.toUpperCase();
+import { getMysqlPool } from '../config/mysql.js';
 
-  // 1. Simulación de permisos DDL (Bloqueo)
-  if (upperQuery.includes("CREATE ") || upperQuery.includes("ALTER ") || upperQuery.includes("DROP ")) {
+export const executeMockQuery = async (sqlQuery, activeDb, setupSql) => {
+  const pool = getMysqlPool();
+
+  const upperQuery = sqlQuery.toUpperCase().trim();
+
+  // 1. Bloqueo de permisos DDL
+  if (upperQuery.startsWith("CREATE ") || upperQuery.startsWith("ALTER ") || upperQuery.startsWith("DROP ")) {
     throw new Error("ERROR 1142 (42000): Permisos denegados. No puedes alterar la estructura de la base de datos.");
   }
 
-  // 2. Simulación DML (Modificaciones permitidas pero protegidas por "rollback")
-  if (upperQuery.includes("INSERT ") || upperQuery.includes("UPDATE ") || upperQuery.includes("DELETE ")) {
-    return {
-      success: true,
-      type: "DML",
-      message: "Consulta ejecutada con éxito (1 row affected). Los cambios fueron revertidos automáticamente por seguridad (Rollback).",
-      columns: [],
-      rows: []
-    };
-  }
+  const connection = await pool.getConnection();
 
-  // 3. Simulación DQL (Consultas SELECT)
-  if (upperQuery.includes("SELECT ")) {
-    let mockColumns = [];
-    let mockRows = [];
-
-    // Lógica básica para devolver datos según la DB seleccionada
-    if (activeDb === "punto_venta_db") {
-      mockColumns = ["sku", "articulo", "precio", "stock"];
-      mockRows = [
-        { sku: 109, articulo: "Monitor Gamer 24 Curvo", precio: 245.50, stock: 15 },
-        { sku: 104, articulo: "Teclado Mecánico RGB", precio: 89.99, stock: 30 },
-        { sku: 112, articulo: "Mouse Inalámbrico", precio: 55.00, stock: 45 }
-      ];
-    } else if (activeDb === "control_escolar_db") {
-      mockColumns = ["id_alumno", "nombre", "materia", "grupo"];
-      mockRows = [
-        { id_alumno: 1, nombre: "Ana López", materia: "Matemáticas", grupo: "A" },
-        { id_alumno: 2, nombre: "Carlos Ruiz", materia: "Física", grupo: "B" },
-        { id_alumno: 3, nombre: "María Pérez", materia: "Historia", grupo: "A" }
-      ];
-    } else if (activeDb === "hospital_central_db") {
-      mockColumns = ["id_cita", "fecha", "hora", "especialidad"];
-      mockRows = [
-        { id_cita: 1001, fecha: "2023-11-20", hora: "09:00", especialidad: "Cardiología" },
-        { id_cita: 1002, fecha: "2023-11-20", hora: "10:30", especialidad: "Traumatología" },
-        { id_cita: 1003, fecha: "2023-11-21", hora: "08:15", especialidad: "Pediatría" }
-      ];
+  try {
+    if (!/^[a-zA-Z0-9_]+$/.test(activeDb)) {
+      throw new Error("Nombre de base de datos inválido.");
     }
+    
+    // Si la DB no existe o da error, fallará aquí
+    await connection.query(`USE ${activeDb}`);
 
-    return {
-      success: true,
-      type: "DQL",
-      message: "Consulta de lectura exitosa.",
-      columns: mockColumns,
-      rows: mockRows
-    };
+    await connection.beginTransaction();
+
+    try {
+      // Inyectar el registro de la IA
+      if (setupSql && setupSql.trim().length > 0) {
+        await connection.query(setupSql);
+      }
+
+      // 2. DML (Modificaciones permitidas pero protegidas por "rollback")
+      if (upperQuery.startsWith("INSERT") || upperQuery.startsWith("UPDATE") || upperQuery.startsWith("DELETE")) {
+        const [result] = await connection.query(sqlQuery);
+        await connection.rollback();
+
+        return {
+          success: true,
+          type: "DML",
+          message: `Consulta ejecutada con éxito (${result.affectedRows} row affected). Los cambios fueron revertidos automáticamente por seguridad (Rollback).`,
+          columns: [],
+          rows: []
+        };
+      }
+
+      // 3. DQL (Consultas SELECT)
+      if (upperQuery.startsWith("SELECT") || upperQuery.startsWith("SHOW") || upperQuery.startsWith("DESCRIBE")) {
+        const [rows, fields] = await connection.query(sqlQuery);
+        await connection.rollback(); 
+        
+        return {
+          success: true,
+          type: "DQL",
+          message: "Consulta de lectura exitosa.",
+          columns: fields ? fields.map(f => f.name) : [],
+          rows: rows
+        };
+      }
+
+      throw new Error("ERROR 1064 (42000): Comando no soportado o error de sintaxis. Solo se permiten comandos DML o DQL básicos.");
+    } catch (queryError) {
+      await connection.rollback();
+      throw queryError;
+    }
+  } finally {
+    connection.release();
   }
-
-  // Si no es un comando reconocido o tiene error de sintaxis simulado
-  throw new Error("ERROR 1064 (42000): Tienes un error en tu sintaxis SQL. Revisa la documentación de MySQL para usar la sintaxis correcta.");
 };
