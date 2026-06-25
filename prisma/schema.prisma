@@ -76,6 +76,9 @@ model Classroom {
 
   enrollments Enrollment[]
   practices   Practice[]
+
+  @@index([teacherId])
+  @@index([isArchived])
 }
 
 model Enrollment {
@@ -89,6 +92,8 @@ model Enrollment {
   classroom   Classroom @relation(fields: [classroomId], references: [id], onDelete: Cascade)
 
   @@unique([userId, classroomId])
+  @@index([classroomId])
+  @@index([userId])
 }
 
 model Practice {
@@ -105,6 +110,8 @@ model Practice {
 
   checklistItems      ChecklistItem[]
   submissions         Submission[]
+
+  @@index([classroomId])
 }
 
 model ChecklistItem {
@@ -116,6 +123,8 @@ model ChecklistItem {
   practice    Practice @relation(fields: [practiceId], references: [id], onDelete: Cascade)
 
   evaluations ChecklistEvaluation[]
+
+  @@index([practiceId])
 }
 
 model Submission {
@@ -123,6 +132,7 @@ model Submission {
   studentSqlCode      String?  @db.Text
   generatedStatement  String?  @db.Text // El enunciado único generado por la IA
   setupSql            String?  @db.Text // El DML generado por la IA para inyectar en la DB
+  executionResult     String?  @db.Text // El resultado en formato JSON de la tabla (columnas y filas)
   reviewStatus        String   @default("pendiente") // pendiente, calificada, no_entregada
   submittedAt         DateTime @default(now())
 
@@ -135,6 +145,8 @@ model Submission {
   evaluations         ChecklistEvaluation[]
 
   @@unique([userId, practiceId]) // Un alumno tiene 1 submission por práctica
+  @@index([practiceId])
+  @@index([userId])
 }
 
 model ChecklistEvaluation {

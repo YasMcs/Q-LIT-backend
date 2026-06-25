@@ -3,7 +3,7 @@ import { prisma } from '../config/db.js';
 
 export const evaluateSubmission = async (req, res, next) => {
   try {
-    const { studentSqlCode, practiceObjective, checklist, submissionId, practiceId } = req.body;
+    const { studentSqlCode, executionResult: resultData, practiceObjective, checklist, submissionId, practiceId } = req.body;
     const userId = req.user?.id;
 
     // Validación básica
@@ -41,12 +41,13 @@ export const evaluateSubmission = async (req, res, next) => {
     }
 
     if (submission) {
-      // 1. Actualizar el código SQL, estado de revisión y fecha de entrega
+      // 1. Actualizar el código SQL, resultado, estado de revisión y fecha de entrega
       await prisma.submission.update({
         where: { id: submission.id },
         data: {
           studentSqlCode,
-          reviewStatus: "calificada",
+          executionResult: resultData ? JSON.stringify(resultData) : null,
+          reviewStatus: "pendiente",
           submittedAt: new Date()
         }
       });

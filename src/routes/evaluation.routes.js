@@ -4,7 +4,8 @@ import { bffAuthMiddleware } from '../middlewares/auth.middleware.js';
 
 const router = Router();
 
-// Endpoint POST /api/evaluations
+// Endpoint que ejecuta la evaluación de IA
 router.post('/', bffAuthMiddleware, evaluationController.evaluateSubmission);
+router.post('/teacher-grade', evaluationController.confirmTeacherGrade);
 
 export default router;

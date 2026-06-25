@@ -8,7 +8,8 @@ export const startPractice = async (req, res, next) => {
 
     // Buscar la práctica para obtener sus datos
     const practice = await prisma.practice.findUnique({
-      where: { id: practiceId }
+      where: { id: practiceId },
+      include: { checklistItems: true }
     });
 
     if (!practice) {
@@ -63,9 +64,11 @@ export const startPractice = async (req, res, next) => {
         practice: {
           id: practice.id,
           title: practice.title,
+          description: practice.description,
           requiredFunctions: practice.requiredFunctions,
           totalPoints: practice.totalPoints,
-          deadline: practice.deadline
+          deadline: practice.deadline,
+          checklistItems: practice.checklistItems
         },
         submission: {
           id: submission.id,
@@ -127,7 +130,20 @@ export const getPracticeSubmissions = async (req, res, next) => {
         studentId: sub.user?.id || sub.userId,
         status,
         score,
-        submittedAt: sub.submittedAt
+        submittedAt: sub.submittedAt,
+        sqlQuery: sub.studentSqlCode,
+        executionResult: sub.executionResult ? JSON.parse(sub.executionResult) : null,
+        checklist: sub.evaluations.map(ev => ({
+          id: ev.checklistItem?.id,
+          text: ev.checklistItem?.criterion,
+          maxPoints: ev.checklistItem?.maxPoints,
+          aiComplies: ev.aiComplies,
+          teacherComplies: ev.teacherComplies,
+          iaPoints: ev.aiComplies ? ev.checklistItem?.maxPoints : 0,
+          teacherPoints: ev.teacherComplies !== null 
+            ? (ev.teacherComplies ? ev.checklistItem?.maxPoints : 0) 
+            : (ev.aiComplies ? ev.checklistItem?.maxPoints : 0)
+        }))
       };
     });
 

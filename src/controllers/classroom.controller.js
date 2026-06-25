@@ -45,6 +45,41 @@ export const getClassroomsByTeacher = async (req, res, next) => {
   }
 };
 
+export const getClassroomById = async (req, res, next) => {
+  try {
+    const { id } = req.params;
+
+    const classroom = await prisma.classroom.findUnique({
+      where: { id },
+      include: {
+        enrollments: {
+          include: {
+            user: {
+              select: {
+                id: true,
+                name: true,
+                email: true,
+                avatarUrl: true
+              }
+            }
+          }
+        },
+        practices: {
+          orderBy: { createdAt: 'desc' }
+        }
+      }
+    });
+
+    if (!classroom) {
+      return res.status(404).json({ error: { message: "Clase no encontrada" } });
+    }
+
+    res.status(200).json({ data: classroom });
+  } catch (error) {
+    next(error);
+  }
+};
+
 export const createClassroom = async (req, res, next) => {
   try {
     const { name, group, teacherId } = req.body;
