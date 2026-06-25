@@ -59,7 +59,7 @@ export const getClassroomById = async (req, res, next) => {
                 id: true,
                 name: true,
                 email: true,
-                avatarUrl: true
+                image: true
               }
             }
           }
