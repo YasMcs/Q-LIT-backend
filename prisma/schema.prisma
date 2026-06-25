@@ -133,7 +133,7 @@ model Submission {
   generatedStatement  String?  @db.Text // El enunciado único generado por la IA
   setupSql            String?  @db.Text // El DML generado por la IA para inyectar en la DB
   executionResult     String?  @db.Text // El resultado en formato JSON de la tabla (columnas y filas)
-  reviewStatus        String   @default("pendiente") // pendiente, calificada, no_entregada
+  reviewStatus        String   @default("en_progreso") // en_progreso, pendiente, calificada, no_entregada
   submittedAt         DateTime @default(now())
 
   userId              String

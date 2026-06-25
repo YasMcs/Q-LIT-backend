@@ -131,7 +131,9 @@ export const updatePractice = async (req, res, next) => {
       const deleteResult = await prisma.submission.deleteMany({
         where: {
           practiceId: id,
-          reviewStatus: "pendiente"
+          reviewStatus: {
+            in: ["pendiente", "en_progreso"]
+          }
         }
       });
       deletedSubmissionsCount = deleteResult.count;

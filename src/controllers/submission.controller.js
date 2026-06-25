@@ -46,14 +46,14 @@ export const startPractice = async (req, res, next) => {
         console.error("Error parseando respuesta de Gemini JSON:", e);
       }
 
-      // 2. Crear la submission con estado "pendiente"
+      // 2. Crear la submission con estado "en_progreso"
       submission = await prisma.submission.create({
         data: {
           userId,
           practiceId,
           generatedStatement: statementText,
           setupSql: setupSql,
-          reviewStatus: "pendiente"
+          reviewStatus: "en_progreso"
         }
       });
     }

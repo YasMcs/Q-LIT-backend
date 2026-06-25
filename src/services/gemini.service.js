@@ -52,6 +52,9 @@ Instrucciones para ti:
   } catch (error) {
     console.error("Error al generar enunciado con Gemini:", error);
     // Fallback in case of AI error
-    return `Problema técnico: No se pudo generar la historia personalizada. Por favor, resuelve el siguiente objetivo: ${description}`;
+    return JSON.stringify({
+      historia: `Problema técnico: No se pudo generar la historia personalizada. Por favor, resuelve el siguiente objetivo: ${description}`,
+      setup_sql: ""
+    });
   }
 };

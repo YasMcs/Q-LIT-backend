@@ -25,20 +25,63 @@ export const executeMockQuery = async (sqlQuery, activeDb, setupSql) => {
     try {
       // Inyectar el registro de la IA
       if (setupSql && setupSql.trim().length > 0) {
+        // Desactivar temporalmente la comprobación de claves foráneas para poder vaciar las tablas
+        await connection.query("SET FOREIGN_KEY_CHECKS = 0");
+
+        // Obtener todas las tablas de la base de datos para vaciarlas temporalmente
+        const [tablesRow] = await connection.query("SHOW TABLES");
+        const tableKey = Object.keys(tablesRow[0] || {})[0];
+        
+        if (tableKey) {
+          const tables = tablesRow.map(row => row[tableKey]);
+          for (const table of tables) {
+            await connection.query(`DELETE FROM \`${table}\``);
+          }
+        }
+        
+        // Reactivar la comprobación de claves foráneas
+        await connection.query("SET FOREIGN_KEY_CHECKS = 1");
+
+        // Inyectar el setupSql de la IA
         await connection.query(setupSql);
       }
 
       // 2. DML (Modificaciones permitidas pero protegidas por "rollback")
       if (upperQuery.startsWith("INSERT") || upperQuery.startsWith("UPDATE") || upperQuery.startsWith("DELETE")) {
+        // Extraer el nombre de la tabla afectada para consultar su estado antes del rollback
+        let tableName = null;
+        const updateMatch = sqlQuery.match(/UPDATE\s+\`?([a-zA-Z0-9_-]+)\`?/i);
+        const insertMatch = sqlQuery.match(/INSERT\s+INTO\s+\`?([a-zA-Z0-9_-]+)\`?/i);
+        const deleteMatch = sqlQuery.match(/DELETE\s+FROM\s+\`?([a-zA-Z0-9_-]+)\`?/i);
+
+        if (updateMatch) tableName = updateMatch[1];
+        else if (insertMatch) tableName = insertMatch[1];
+        else if (deleteMatch) tableName = deleteMatch[1];
+
         const [result] = await connection.query(sqlQuery);
+
+        let columns = [];
+        let rows = [];
+
+        // Si encontramos la tabla, traemos su contenido modificado antes del rollback
+        if (tableName) {
+          try {
+            const [selectRows, fields] = await connection.query(`SELECT * FROM \`${tableName}\``);
+            columns = fields ? fields.map(f => f.name) : [];
+            rows = selectRows;
+          } catch (selectErr) {
+            console.error("Error al obtener la tabla modificada para el sandbox:", selectErr);
+          }
+        }
+
         await connection.rollback();
 
         return {
           success: true,
           type: "DML",
-          message: `Consulta ejecutada con éxito (${result.affectedRows} row affected). Los cambios fueron revertidos automáticamente por seguridad (Rollback).`,
-          columns: [],
-          rows: []
+          message: `Consulta ejecutada con éxito. Se afectaron ${result.affectedRows} fila(s).`,
+          columns,
+          rows
         };
       }
 
