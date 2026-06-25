@@ -88,15 +88,32 @@ export const getPracticeSubmissions = async (req, res, next) => {
   try {
     const { id: practiceId } = req.params;
 
+    // Buscar la práctica junto con la clase y las inscripciones
+    const practice = await prisma.practice.findUnique({
+      where: { id: practiceId },
+      include: {
+        classroom: {
+          include: {
+            enrollments: {
+              include: {
+                user: {
+                  select: { id: true, name: true, email: true, image: true }
+                }
+              }
+            }
+          }
+        }
+      }
+    });
+
+    if (!practice) {
+      return res.status(404).json({ error: { message: "Práctica no encontrada" } });
+    }
+
+    // Buscar las entregas (submissions) que sí existen
     const submissions = await prisma.submission.findMany({
       where: { practiceId },
       include: {
-        user: {
-          select: {
-            id: true,
-            name: true
-          }
-        },
         evaluations: {
           include: {
             checklistItem: true
@@ -105,7 +122,32 @@ export const getPracticeSubmissions = async (req, res, next) => {
       }
     });
 
-    const formattedSubmissions = submissions.map(sub => {
+    const submissionsMap = new Map();
+    submissions.forEach(sub => {
+      submissionsMap.set(sub.userId, sub);
+    });
+
+    // Mapear cada alumno inscrito combinando con su posible entrega
+    const formattedStudents = practice.classroom.enrollments.map(enrollment => {
+      const student = enrollment.user;
+      const sub = submissionsMap.get(student.id);
+
+      if (!sub) {
+        // Alumno inscrito pero sin comenzar la práctica
+        return {
+          studentName: student.name || "Estudiante",
+          studentEmail: student.email || "",
+          studentId: student.id,
+          status: "NOT_STARTED",
+          score: 0,
+          submittedAt: null,
+          sqlQuery: "",
+          executionResult: null,
+          checklist: []
+        };
+      }
+
+      // Alumno que ya comenzó o entregó
       let score = 0;
       sub.evaluations.forEach(ev => {
         const complies = ev.teacherComplies !== null 
@@ -126,8 +168,9 @@ export const getPracticeSubmissions = async (req, res, next) => {
 
       return {
         submissionId: sub.id,
-        studentName: sub.user?.name || "Estudiante",
-        studentId: sub.user?.id || sub.userId,
+        studentName: student.name || "Estudiante",
+        studentEmail: student.email || "",
+        studentId: student.id,
         status,
         score,
         submittedAt: sub.submittedAt,
@@ -149,7 +192,12 @@ export const getPracticeSubmissions = async (req, res, next) => {
 
     res.status(200).json({
       status: "success",
-      data: formattedSubmissions
+      data: {
+        practiceTitle: practice.title,
+        practiceDescription: practice.description,
+        deadline: practice.deadline,
+        students: formattedStudents
+      }
     });
   } catch (error) {
     next(error);

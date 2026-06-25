@@ -31,8 +31,8 @@ export const createPractice = async (req, res, next) => {
       deadline = new Date(`${dueDate}T${time}:00Z`);
     }
 
-    // Combinar descripción y objetivo
-    const fullDescription = `${description || ''}\n\nObjetivo: ${objective || ''}`.trim();
+    // Usar la descripción proporcionada directamente
+    const fullDescription = (description || '').trim();
 
     // Parse required functions
     const keywords = requiredFunctionsStr 
@@ -96,8 +96,8 @@ export const updatePractice = async (req, res, next) => {
       deadline = new Date(`${dueDate}T${time}:00Z`);
     }
 
-    const fullDescription = description !== undefined && objective !== undefined 
-      ? `${description || ''}\n\nObjetivo: ${objective || ''}`.trim()
+    const fullDescription = description !== undefined 
+      ? (description || '').trim()
       : existingPractice.description;
 
     const keywords = requiredFunctionsStr !== undefined
@@ -114,6 +114,15 @@ export const updatePractice = async (req, res, next) => {
         requiredFunctions: { db, keywords },
         totalPoints: maxScore !== undefined ? maxScore : existingPractice.totalPoints,
         deadline,
+        ...(criteria !== undefined ? {
+          checklistItems: {
+            deleteMany: {},
+            create: criteria.map(c => ({
+              criterion: c.text,
+              maxPoints: c.points
+            }))
+          }
+        } : {})
       }
     });
 
