@@ -111,3 +111,47 @@ export const evaluateSubmission = async (req, res, next) => {
     next(error); // Pasa el error al manejador global
   }
 };
+
+export const confirmTeacherGrade = async (req, res, next) => {
+  try {
+    const { submissionId, evaluations } = req.body;
+
+    if (!submissionId || !Array.isArray(evaluations)) {
+      return res.status(400).json({
+        error: {
+          code: 'BAD_REQUEST',
+          message: 'Faltan parámetros requeridos: submissionId, evaluations'
+        }
+      });
+    }
+
+    // 1. Actualizar estado de la entrega a "calificada"
+    await prisma.submission.update({
+      where: { id: submissionId },
+      data: { reviewStatus: "calificada" }
+    });
+
+    // 2. Actualizar las evaluaciones individuales (teacherComplies)
+    for (const ev of evaluations) {
+      if (ev.checklistItemId !== undefined && ev.teacherComplies !== undefined) {
+        await prisma.checklistEvaluation.updateMany({
+          where: {
+            submissionId: submissionId,
+            checklistItemId: ev.checklistItemId
+          },
+          data: {
+            teacherComplies: ev.teacherComplies
+          }
+        });
+      }
+    }
+
+    res.status(200).json({
+      message: "Calificación confirmada con éxito",
+      data: { submissionId }
+    });
+
+  } catch (error) {
+    next(error);
+  }
+};
