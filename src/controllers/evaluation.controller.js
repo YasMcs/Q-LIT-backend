@@ -45,8 +45,10 @@ export const evaluateSubmission = async (req, res, next) => {
     if (submission) {
       // 0. Verificar si la entrega está bloqueada por fecha límite (closeLateSubmissions)
       const practice = submission.practice;
-      if (practice && practice.closeLateSubmissions && practice.deadline) {
-        if (new Date() > practice.deadline) {
+      if (practice && practice.deadline) {
+        const isLate = new Date() > new Date(practice.deadline);
+        console.log(`[Submission Check] Practice: "${practice.title}", closeLateSubmissions: ${practice.closeLateSubmissions}, Is Late: ${isLate}`);
+        if (practice.closeLateSubmissions && isLate) {
           return res.status(403).json({
             error: {
               code: 'FORBIDDEN',
