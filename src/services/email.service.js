@@ -1,8 +1,15 @@
-import { Resend } from 'resend';
+import nodemailer from 'nodemailer';
 
-// Inicializar Resend con la API key. Si no está en el .env, no fallará al instanciar gracias al fallback.
-const resend = new Resend(process.env.RESEND_API_KEY || 're_dummy_key');
-const SENDER_EMAIL = 'Q-LIT Notificaciones <onboarding@resend.dev>';
+// Configurar el transportador de Nodemailer usando las variables de entorno
+const transporter = nodemailer.createTransport({
+  service: 'gmail', // Configuración rápida para Gmail
+  auth: {
+    user: process.env.EMAIL_USER, // Tu correo de Gmail (ej. qlit.oficial@gmail.com)
+    pass: process.env.EMAIL_PASS  // Tu "Contraseña de aplicación" de 16 letras
+  }
+});
+
+const SENDER_EMAIL = '"Q-LIT Notificaciones" <' + (process.env.EMAIL_USER || 'noreply@qlit.com') + '>';
 
 /**
  * Plantilla base para todos los correos
@@ -43,23 +50,24 @@ const getBaseTemplate = (title, content) => `
  * Helper interno para enviar correo
  */
 const sendEmail = async (to, subject, html) => {
-  if (!process.env.RESEND_API_KEY) {
-    console.warn('⚠️ No se ha configurado RESEND_API_KEY. Correo no enviado.');
+  if (!process.env.EMAIL_USER || !process.env.EMAIL_PASS) {
+    console.warn('⚠️ No se han configurado EMAIL_USER y EMAIL_PASS en el .env. Correo simulado (no enviado a la red).');
+    console.log(`[SIMULACIÓN DE CORREO] Para: ${to} | Asunto: ${subject}`);
     return;
   }
   
   try {
-    const data = await resend.emails.send({
+    const info = await transporter.sendMail({
       from: SENDER_EMAIL,
-      to: [to],
+      to: to,
       subject: subject,
       html: html
     });
-    console.log(`✅ Correo enviado a ${to} (ID: ${data.id})`);
-    return data;
+    console.log(`✅ Correo enviado a ${to} (ID: ${info.messageId})`);
+    return info;
   } catch (error) {
     console.error(`❌ Error enviando correo a ${to}:`, error);
-    // No lanzamos error para que no bloquee el flujo principal de la app
+    // No lanzamos el error para no detener la ejecución principal
   }
 };
 
