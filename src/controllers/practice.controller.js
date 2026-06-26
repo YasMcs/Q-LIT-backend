@@ -1,4 +1,5 @@
 import { prisma } from '../config/db.js';
+import { sendNewPracticeEmail } from '../services/email.service.js';
 
 export const createPractice = async (req, res, next) => {
   try {
@@ -63,7 +64,36 @@ export const createPractice = async (req, res, next) => {
       }
     });
 
+    // Respuesta al cliente
     res.status(201).json(newPractice);
+
+    // Enviar correos en background
+    try {
+      const classroom = await prisma.classroom.findUnique({
+        where: { id: classroomId },
+        include: {
+          enrollments: {
+            include: { user: true }
+          }
+        }
+      });
+      if (classroom && classroom.enrollments) {
+        classroom.enrollments.forEach(enrollment => {
+          if (enrollment.user.email) {
+            sendNewPracticeEmail(
+              enrollment.user.email,
+              enrollment.user.name,
+              title,
+              classroom.name,
+              deadline
+            );
+          }
+        });
+      }
+    } catch (emailError) {
+      console.error('Error enviando correos de nueva práctica:', emailError);
+    }
+
   } catch (error) {
     next(error);
   }

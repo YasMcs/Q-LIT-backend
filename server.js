@@ -2,6 +2,7 @@ import express from 'express';
 import cors from 'cors';
 import dotenv from 'dotenv';
 import { errorHandler } from './src/middlewares/errorHandler.js';
+import { startRemindersCron } from './src/cron/reminders.js';
 import healthRoutes from './src/routes/health.routes.js';
 import evaluationRoutes from './src/routes/evaluation.routes.js';
 import classroomRoutes from './src/routes/classroom.routes.js';
@@ -29,6 +30,9 @@ app.use('/api/catalogs', catalogRoutes);
 
 // Manejador global de errores (debe ir al final)
 app.use(errorHandler);
+
+// Iniciar cron jobs
+startRemindersCron();
 
 app.listen(PORT, () => {
   console.log(`🚀 Servidor corriendo en http://localhost:${PORT}`);

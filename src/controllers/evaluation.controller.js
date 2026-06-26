@@ -1,5 +1,6 @@
 import * as aiService from '../services/ai.service.js';
 import { prisma } from '../config/db.js';
+import { sendGradedEmail } from '../services/email.service.js';
 
 export const evaluateSubmission = async (req, res, next) => {
   try {
@@ -160,6 +161,41 @@ export const confirmTeacherGrade = async (req, res, next) => {
           }
         });
       }
+    }
+
+    // 3. Enviar correo al estudiante (en background)
+    try {
+      const submission = await prisma.submission.findUnique({
+        where: { id: submissionId },
+        include: {
+          user: true,
+          practice: {
+            include: { checklistItems: true }
+          },
+          evaluations: true
+        }
+      });
+      
+      if (submission && submission.user?.email && submission.practice) {
+        // Calcular score final usando teacherComplies
+        let totalScore = 0;
+        submission.evaluations.forEach(ev => {
+          if (ev.teacherComplies) {
+            const item = submission.practice.checklistItems.find(i => i.id === ev.checklistItemId);
+            if (item) totalScore += item.maxPoints;
+          }
+        });
+        
+        sendGradedEmail(
+          submission.user.email,
+          submission.user.name,
+          submission.practice.title,
+          totalScore,
+          submission.practice.totalPoints
+        );
+      }
+    } catch (emailError) {
+      console.error('Error enviando correo de calificación:', emailError);
     }
 
     res.status(200).json({
