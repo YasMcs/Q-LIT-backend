@@ -1,7 +1,7 @@
 import { Resend } from 'resend';
 
-// Inicializar Resend con la API key. Si no está en el .env, no fallará al instanciar, pero sí al enviar.
-const resend = new Resend(process.env.RESEND_API_KEY);
+// Inicializar Resend con la API key. Si no está en el .env, no fallará al instanciar gracias al fallback.
+const resend = new Resend(process.env.RESEND_API_KEY || 're_dummy_key');
 const SENDER_EMAIL = 'Q-LIT Notificaciones <onboarding@resend.dev>';
 
 /**
