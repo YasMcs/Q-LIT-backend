@@ -27,7 +27,8 @@ export const evaluateSubmission = async (req, res, next) => {
     let submission = null;
     if (submissionId) {
       submission = await prisma.submission.findUnique({
-        where: { id: submissionId }
+        where: { id: submissionId },
+        include: { practice: true }
       });
     } else if (practiceId && userId) {
       submission = await prisma.submission.findUnique({
@@ -36,11 +37,24 @@ export const evaluateSubmission = async (req, res, next) => {
             userId,
             practiceId
           }
-        }
+        },
+        include: { practice: true }
       });
     }
 
     if (submission) {
+      // 0. Verificar si la entrega está bloqueada por fecha límite (closeLateSubmissions)
+      const practice = submission.practice;
+      if (practice && practice.closeLateSubmissions && practice.deadline) {
+        if (new Date() > practice.deadline) {
+          return res.status(403).json({
+            error: {
+              code: 'FORBIDDEN',
+              message: 'El periodo de entrega para esta práctica ha finalizado.'
+            }
+          });
+        }
+      }
       // 1. Actualizar el código SQL, resultado, estado de revisión y fecha de entrega
       await prisma.submission.update({
         where: { id: submission.id },

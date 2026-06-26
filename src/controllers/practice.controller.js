@@ -12,7 +12,8 @@ export const createPractice = async (req, res, next) => {
       dueTime, 
       activeDb, 
       criteria, 
-      classroomId 
+      classroomId,
+      closeLateSubmissions 
     } = req.body;
 
     if (!title || !classroomId) {
@@ -24,11 +25,12 @@ export const createPractice = async (req, res, next) => {
       });
     }
 
-    // Calcular deadline
     let deadline = null;
-    if (dueDate) {
+    if (req.body.deadlineIso) {
+      deadline = new Date(req.body.deadlineIso);
+    } else if (dueDate) {
       const time = dueTime || '23:59';
-      deadline = new Date(`${dueDate}T${time}:00Z`);
+      deadline = new Date(`${dueDate}T${time}:00`);
     }
 
     // Usar la descripción proporcionada directamente
@@ -47,6 +49,7 @@ export const createPractice = async (req, res, next) => {
         requiredFunctions: { db: activeDb, keywords },
         totalPoints: maxScore,
         deadline,
+        closeLateSubmissions: Boolean(closeLateSubmissions),
         classroomId,
         checklistItems: {
           create: criteria.map(c => ({
@@ -79,7 +82,8 @@ export const updatePractice = async (req, res, next) => {
       dueTime, 
       activeDb, 
       criteria, 
-      forceRegenerate 
+      forceRegenerate,
+      closeLateSubmissions 
     } = req.body;
 
     const existingPractice = await prisma.practice.findUnique({
@@ -91,9 +95,11 @@ export const updatePractice = async (req, res, next) => {
     }
 
     let deadline = existingPractice.deadline;
-    if (dueDate) {
+    if (req.body.deadlineIso) {
+      deadline = new Date(req.body.deadlineIso);
+    } else if (dueDate) {
       const time = dueTime || '23:59';
-      deadline = new Date(`${dueDate}T${time}:00Z`);
+      deadline = new Date(`${dueDate}T${time}:00`);
     }
 
     const fullDescription = description !== undefined 
@@ -114,6 +120,7 @@ export const updatePractice = async (req, res, next) => {
         requiredFunctions: { db, keywords },
         totalPoints: maxScore !== undefined ? maxScore : existingPractice.totalPoints,
         deadline,
+        closeLateSubmissions: closeLateSubmissions !== undefined ? Boolean(closeLateSubmissions) : existingPractice.closeLateSubmissions,
         ...(criteria !== undefined ? {
           checklistItems: {
             deleteMany: {},

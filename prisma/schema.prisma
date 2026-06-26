@@ -104,6 +104,7 @@ model Practice {
   totalPoints         Int      @default(100)
   createdAt           DateTime @default(now())
   deadline            DateTime?
+  closeLateSubmissions Boolean  @default(false)
 
   classroomId         String
   classroom           Classroom @relation(fields: [classroomId], references: [id], onDelete: Cascade)
