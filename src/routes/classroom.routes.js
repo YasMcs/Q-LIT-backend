@@ -10,6 +10,7 @@ router.get('/student', bffAuthMiddleware, classroomController.getClassroomsByStu
 
 // Rutas de Docente (sin middleware temporalmente para no romper la app actual)
 router.get('/', classroomController.getClassroomsByTeacher);
+router.get('/teacher/statistics', classroomController.getTeacherStatistics);
 router.get('/:id', classroomController.getClassroomById);
 router.post('/', classroomController.createClassroom);
 router.delete('/:id', classroomController.archiveClassroom);
