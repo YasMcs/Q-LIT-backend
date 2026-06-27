@@ -63,7 +63,8 @@ const sendEmail = async (to, subject, html) => {
       from: SENDER_EMAIL,
       to: to,
       subject: subject,
-      html: html
+      html: html,
+      text: html.replace(/<[^>]*>?/gm, '').trim() // Extrae solo el texto puro para evitar filtros anti-spam
     });
     console.log(`✅ Correo enviado a ${to} (ID: ${info.messageId})`);
     return info;
