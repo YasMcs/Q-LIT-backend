@@ -489,3 +489,121 @@ export const getTeacherStatistics = async (req, res, next) => {
   }
 };
 
+export const getTeacherStudents = async (req, res, next) => {
+  try {
+    const { teacherId, classroomId } = req.query;
+
+    if (!teacherId) {
+      return res.status(400).json({
+        error: {
+          code: 'BAD_REQUEST',
+          message: 'Se requiere el teacherId'
+        }
+      });
+    }
+
+    // 1. Obtener todas las clases del docente (activas)
+    const classrooms = await prisma.classroom.findMany({
+      where: {
+        teacherId,
+        isArchived: false,
+        ...(classroomId && classroomId !== 'all' ? { id: classroomId } : {})
+      },
+      include: {
+        enrollments: {
+          include: {
+            user: true
+          }
+        },
+        practices: {
+          include: {
+            checklistItems: true,
+            submissions: {
+              include: {
+                evaluations: {
+                  include: {
+                    checklistItem: true
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    });
+
+    const studentsList = [];
+
+    // 2. Iterar sobre cada clase y sus alumnos inscritos
+    for (const cls of classrooms) {
+      const groupName = cls.group || cls.inviteCode || "A";
+
+      for (const enrollment of cls.enrollments) {
+        const student = enrollment.user;
+        const practicesHistory = [];
+        
+        let totalScoreSum = 0;
+        let evaluatedPracticesCount = cls.practices.length;
+
+        for (const practice of cls.practices) {
+          const totalPoints = practice.totalPoints || 100;
+          const sub = practice.submissions.find(s => s.userId === student.id);
+          
+          let score = 0;
+          let dateStr = "No entregada";
+
+          if (sub && (sub.reviewStatus === 'pendiente' || sub.reviewStatus === 'calificada')) {
+            // Calcular score
+            sub.evaluations.forEach(ev => {
+              const complies = ev.teacherComplies !== null ? ev.teacherComplies : ev.aiComplies;
+              if (complies && ev.checklistItem) {
+                score += ev.checklistItem.maxPoints;
+              }
+            });
+            
+            // Normalizar a base 100
+            score = Math.round((score / totalPoints) * 100);
+            
+            // Formatear fecha (ej. "15 May")
+            if (sub.submittedAt) {
+              const date = new Date(sub.submittedAt);
+              const day = date.getDate();
+              const month = date.toLocaleDateString("es-ES", { month: 'short' }).replace('.', '');
+              dateStr = `${day} ${month}`;
+            }
+          }
+
+          totalScoreSum += score;
+
+          practicesHistory.push({
+            id: practice.id,
+            title: practice.title,
+            score,
+            date: dateStr
+          });
+        }
+
+        const average = evaluatedPracticesCount > 0 
+          ? Math.round(totalScoreSum / evaluatedPracticesCount) 
+          : 100; // 100 por defecto si no hay prácticas
+
+        studentsList.push({
+          id: `${student.id}_${cls.id}`,
+          name: student.name || "Estudiante",
+          email: student.email || "",
+          group: groupName,
+          average,
+          practices: practicesHistory
+        });
+      }
+    }
+
+    res.status(200).json({
+      students: studentsList
+    });
+
+  } catch (error) {
+    next(error);
+  }
+};
+
