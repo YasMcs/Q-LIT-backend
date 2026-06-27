@@ -16,7 +16,6 @@ export const startPractice = async (req, res, next) => {
       return res.status(404).json({ error: { code: 'NOT_FOUND', message: 'Práctica no encontrada' } });
     }
 
-    // Verificar si el alumno ya tiene una submission para esta práctica
     let submission = await prisma.submission.findUnique({
       where: {
         userId_practiceId: {
@@ -25,6 +24,15 @@ export const startPractice = async (req, res, next) => {
         }
       }
     });
+
+    if (submission && (submission.reviewStatus === "pendiente" || submission.reviewStatus === "calificada")) {
+      return res.status(403).json({
+        error: {
+          code: 'FORBIDDEN',
+          message: 'Ya has entregado esta práctica y no puedes volver a ingresar.'
+        }
+      });
+    }
 
     if (!submission) {
       // 1. Llamar a la IA para generar el problema

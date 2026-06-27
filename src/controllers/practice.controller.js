@@ -191,12 +191,20 @@ export const updatePractice = async (req, res, next) => {
 export const getPracticesByClassroom = async (req, res, next) => {
   try {
     const { classroomId } = req.params;
+    const userId = req.user?.id;
+
+    const include = {
+      checklistItems: true,
+    };
+    if (userId) {
+      include.submissions = {
+        where: { userId }
+      };
+    }
 
     const practices = await prisma.practice.findMany({
       where: { classroomId },
-      include: {
-        checklistItems: true
-      },
+      include,
       orderBy: { createdAt: 'desc' }
     });
 

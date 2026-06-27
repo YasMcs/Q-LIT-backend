@@ -1,10 +1,12 @@
 import { executeMockQuery } from '../services/sandbox.service.js';
 import { prisma } from '../config/db.js';
+import { translateSqlError } from '../services/errorTranslator.service.js';
 
 export const executePracticeQuery = async (req, res, next) => {
+  const { practiceId } = req.params;
+  const { sqlQuery, activeDb } = req.body;
+
   try {
-    const { practiceId } = req.params;
-    const { sqlQuery, activeDb } = req.body;
 
     const userId = req.user.id;
 
@@ -30,10 +32,21 @@ export const executePracticeQuery = async (req, res, next) => {
       data: result
     });
   } catch (error) {
-    // Return formatted error for frontend terminal
+    // Traducir el error SQL al español y obtener sugerencia
+    const translation = await translateSqlError(error, sqlQuery);
+    
+    // Combinamos el mensaje y la sugerencia en una sola cadena con saltos de línea
+    // para que funcione de forma inmediata con el código actual del frontend.
+    const combinedMessage = `${translation.mensaje}\n\n💡 Sugerencia: ${translation.sugerencia}`;
+
     return res.status(400).json({
       status: "error",
-      error: { message: error.message }
+      error: { 
+        message: combinedMessage,
+        mensaje: translation.mensaje,
+        suggestion: translation.sugerencia,
+        rawMessage: error.message 
+      }
     });
   }
 };
