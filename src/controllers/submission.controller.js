@@ -34,6 +34,19 @@ export const startPractice = async (req, res, next) => {
       });
     }
 
+    // Verificar si la entrega está bloqueada por fecha límite
+    if (practice.deadline && practice.closeLateSubmissions) {
+      const isLate = new Date() > new Date(practice.deadline);
+      if (isLate) {
+        return res.status(403).json({
+          error: {
+            code: 'LATE_SUBMISSIONS_CLOSED',
+            message: 'Esta práctica no se puede enviar después de la fecha de entrega.'
+          }
+        });
+      }
+    }
+
     if (!submission) {
       // 1. Llamar a la IA para generar el problema
       const functionsStrList = practice.requiredFunctions?.keywords || [];
@@ -76,6 +89,7 @@ export const startPractice = async (req, res, next) => {
           requiredFunctions: practice.requiredFunctions,
           totalPoints: practice.totalPoints,
           deadline: practice.deadline,
+          closeLateSubmissions: practice.closeLateSubmissions,
           checklistItems: practice.checklistItems
         },
         submission: {
