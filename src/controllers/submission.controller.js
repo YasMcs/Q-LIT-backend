@@ -114,6 +114,7 @@ export const getPracticeSubmissions = async (req, res, next) => {
     const practice = await prisma.practice.findUnique({
       where: { id: practiceId },
       include: {
+        checklistItems: true,
         classroom: {
           include: {
             enrollments: {
@@ -160,12 +161,21 @@ export const getPracticeSubmissions = async (req, res, next) => {
           studentName: student.name || "Estudiante",
           studentEmail: student.email || "",
           studentId: student.id,
+          studentImage: student.image || "",
           status: "NOT_STARTED",
           score: 0,
           submittedAt: null,
           sqlQuery: "",
           executionResult: null,
-          checklist: []
+          checklist: practice.checklistItems.map(item => ({
+            id: item.id,
+            text: item.criterion,
+            maxPoints: item.maxPoints,
+            aiComplies: false,
+            teacherComplies: false,
+            iaPoints: 0,
+            teacherPoints: 0
+          }))
         };
       }
 
@@ -193,6 +203,7 @@ export const getPracticeSubmissions = async (req, res, next) => {
         studentName: student.name || "Estudiante",
         studentEmail: student.email || "",
         studentId: student.id,
+        studentImage: student.image || "",
         status,
         score,
         submittedAt: sub.submittedAt,

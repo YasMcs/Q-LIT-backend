@@ -207,3 +207,58 @@ export const confirmTeacherGrade = async (req, res, next) => {
     next(error);
   }
 };
+
+export const assignZeroGrade = async (req, res, next) => {
+  try {
+    const { practiceId, studentId } = req.body;
+
+    if (!practiceId || !studentId) {
+      return res.status(400).json({
+        error: { code: 'BAD_REQUEST', message: 'Faltan parámetros requeridos: practiceId, studentId' }
+      });
+    }
+
+    const practice = await prisma.practice.findUnique({
+      where: { id: practiceId },
+      include: { checklistItems: true }
+    });
+
+    if (!practice) {
+      return res.status(404).json({ error: { message: 'Práctica no encontrada' } });
+    }
+
+    const submission = await prisma.submission.upsert({
+      where: {
+        userId_practiceId: { userId: studentId, practiceId: practiceId }
+      },
+      update: {
+        reviewStatus: "calificada",
+        studentSqlCode: "-- Asignado 0 por docente",
+        executionResult: null
+      },
+      create: {
+        userId: studentId,
+        practiceId: practiceId,
+        studentSqlCode: "-- Asignado 0 por docente",
+        reviewStatus: "calificada"
+      }
+    });
+
+    for (const item of practice.checklistItems) {
+      await prisma.checklistEvaluation.upsert({
+        where: {
+          submissionId_checklistItemId: { submissionId: submission.id, checklistItemId: item.id }
+        },
+        update: { aiComplies: false, teacherComplies: false },
+        create: { submissionId: submission.id, checklistItemId: item.id, aiComplies: false, teacherComplies: false }
+      });
+    }
+
+    res.status(200).json({
+      message: "Calificación 0 asignada con éxito",
+      data: { submissionId: submission.id }
+    });
+  } catch (error) {
+    next(error);
+  }
+};

@@ -7,5 +7,6 @@ const router = Router();
 // Endpoint que ejecuta la evaluación de IA
 router.post('/', bffAuthMiddleware, evaluationController.evaluateSubmission);
 router.post('/teacher-grade', evaluationController.confirmTeacherGrade);
+router.post('/assign-zero', evaluationController.assignZeroGrade);
 
 export default router;
