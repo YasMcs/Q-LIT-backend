@@ -22,17 +22,18 @@ const getBaseTemplate = (title, content) => `
 <head>
   <meta charset="UTF-8">
   <style>
-    body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: #f8fafc; color: #0f172a; line-height: 1.6; margin: 0; padding: 0; }
-    .container { max-width: 600px; margin: 40px auto; background: #ffffff; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1); }
-    .header { background-color: #4f46e5; color: white; padding: 24px; text-align: center; }
-    .header h1 { margin: 0; font-size: 24px; font-weight: 700; }
-    .content { padding: 32px; }
-    .footer { text-align: center; padding: 24px; color: #64748b; font-size: 14px; border-top: 1px solid #e2e8f0; background-color: #f8fafc; }
-    .btn { display: inline-block; background-color: #06b6d4; color: white; padding: 12px 24px; text-decoration: none; border-radius: 8px; font-weight: bold; margin-top: 16px; }
+    body { font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; background-color: #f1f5f9; color: #1e293b; line-height: 1.6; margin: 0; padding: 40px 20px; }
+    .container { max-width: 600px; margin: 0 auto; background-color: #ffffff; border-radius: 12px; overflow: hidden; border: 1px solid #e2e8f0; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05); }
+    .header { background: #4f46e5; color: #ffffff; padding: 32px 24px; text-align: center; }
+    .header h1 { margin: 0; font-size: 24px; font-weight: 700; letter-spacing: -0.5px; }
+    .content { padding: 40px 32px; background-color: #ffffff; }
+    .footer { text-align: center; padding: 24px; color: #64748b; font-size: 13px; border-top: 1px solid #f1f5f9; background-color: #f8fafc; }
+    .btn { display: inline-block; background-color: #4f46e5; color: #ffffff !important; padding: 14px 32px; text-decoration: none; border-radius: 8px; font-weight: bold; font-size: 15px; text-align: center; }
     .highlight { color: #4f46e5; font-weight: bold; }
+    .info-box { background-color: #f8fafc; padding: 20px; border-radius: 8px; margin: 24px 0; border: 1px solid #e2e8f0; border-left: 4px solid #4f46e5; }
   </style>
 </head>
-<body>
+<body style="background-color: #f1f5f9; padding: 40px 20px;">
   <div class="container">
     <div class="header">
       <h1>${title}</h1>
@@ -41,7 +42,9 @@ const getBaseTemplate = (title, content) => `
       ${content}
     </div>
     <div class="footer">
-      Este es un correo automático generado por Q-LIT.<br>Por favor, no respondas a este mensaje.
+      <strong>Q-LIT Laboratorios SQL</strong><br>
+      Plataforma interactiva de bases de datos.<br>
+      <span style="font-size: 11px; opacity: 0.8; margin-top: 10px; display: inline-block;">Este es un correo automático, por favor no respondas a este mensaje.</span>
     </div>
   </div>
 </body>
@@ -82,17 +85,42 @@ export const sendNewPracticeEmail = async (studentEmail, studentName, practiceTi
   const deadlineStr = deadline ? new Date(deadline).toLocaleString('es-ES', { dateStyle: 'long', timeStyle: 'short' }) : 'Sin límite de tiempo';
   
   const content = `
-    <h2>Hola, ${studentName || 'Estudiante'}</h2>
-    <p>Se ha asignado una nueva práctica en tu clase <span class="highlight">${classroomName}</span>.</p>
-    <div style="background-color: #f1f5f9; padding: 16px; border-radius: 8px; margin: 20px 0;">
-      <p style="margin: 0;"><strong>Práctica:</strong> ${practiceTitle}</p>
-      <p style="margin: 8px 0 0 0;"><strong>Vence:</strong> ${deadlineStr}</p>
+    <h2 style="margin-top: 0; color: #1e293b;">Hola, ${studentName || 'Estudiante'} 👋</h2>
+    <p style="color: #475569; font-size: 16px;">Tu profesor ha publicado un nuevo laboratorio práctico en la clase <span class="highlight">${classroomName}</span>.</p>
+    <div class="info-box">
+      <p style="margin: 0; color: #1e293b; font-size: 16px;"><strong>Práctica:</strong> ${practiceTitle}</p>
+      <p style="margin: 12px 0 0 0; color: #475569; font-size: 15px;"><strong>Vence:</strong> ${deadlineStr}</p>
     </div>
-    <p>Ingresa a Q-LIT para comenzar a resolverla lo antes posible.</p>
-    <a href="${process.env.FRONTEND_URL || 'http://localhost:3000'}" class="btn">Ir a Q-LIT</a>
+    <p style="color: #475569; font-size: 16px;">Ingresa a Q-LIT para comenzar a resolverla y poner a prueba tu lógica SQL.</p>
+    <div style="text-align: center; margin-top: 36px;">
+      <a href="${process.env.FRONTEND_URL || 'http://localhost:3000'}" class="btn">Entrar al Laboratorio</a>
+    </div>
   `;
   
-  return sendEmail(studentEmail, subject, getBaseTemplate('Nueva Práctica', content));
+  return sendEmail(studentEmail, subject, getBaseTemplate('Nuevo Laboratorio SQL', content));
+};
+
+/**
+ * Envía notificación de práctica actualizada
+ */
+export const sendPracticeUpdatedEmail = async (studentEmail, studentName, practiceTitle, classroomName, deadline) => {
+  const subject = `Recordatorio: ${practiceTitle} (Actualizado)`;
+  const deadlineStr = deadline ? new Date(deadline).toLocaleString('es-ES', { dateStyle: 'long', timeStyle: 'short' }) : 'Sin límite de tiempo';
+  
+  const content = `
+    <h2 style="margin-top: 0; color: #1e293b;">Hola, ${studentName || 'Estudiante'} 👋</h2>
+    <p style="color: #475569; font-size: 16px;">Tu profesor ha <strong>modificado algunos detalles</strong> del laboratorio práctico en la clase <span class="highlight">${classroomName}</span>.</p>
+    <div class="info-box">
+      <p style="margin: 0; color: #1e293b; font-size: 16px;"><strong>Práctica:</strong> ${practiceTitle}</p>
+      <p style="margin: 12px 0 0 0; color: #475569; font-size: 15px;"><strong>Vence:</strong> ${deadlineStr}</p>
+    </div>
+    <p style="color: #475569; font-size: 16px;">Te enviamos este recordatorio para que revises los cambios y te asegures de entregar a tiempo.</p>
+    <div style="text-align: center; margin-top: 36px;">
+      <a href="${process.env.FRONTEND_URL || 'http://localhost:3000'}" class="btn">Revisar Laboratorio</a>
+    </div>
+  `;
+  
+  return sendEmail(studentEmail, subject, getBaseTemplate('Laboratorio Actualizado', content));
 };
 
 /**

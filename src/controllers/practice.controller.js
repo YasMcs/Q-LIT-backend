@@ -1,5 +1,5 @@
 import { prisma } from '../config/db.js';
-import { sendNewPracticeEmail } from '../services/email.service.js';
+import { sendNewPracticeEmail, sendPracticeUpdatedEmail } from '../services/email.service.js';
 
 export const createPractice = async (req, res, next) => {
   try {
@@ -174,6 +174,33 @@ export const updatePractice = async (req, res, next) => {
         }
       });
       deletedSubmissionsCount = deleteResult.count;
+    }
+
+    // Enviar correos en background de que se actualizó
+    try {
+      const classroom = await prisma.classroom.findUnique({
+        where: { id: updatedPractice.classroomId },
+        include: {
+          enrollments: {
+            include: { user: true }
+          }
+        }
+      });
+      if (classroom && classroom.enrollments) {
+        classroom.enrollments.forEach(enrollment => {
+          if (enrollment.user.email) {
+            sendPracticeUpdatedEmail(
+              enrollment.user.email,
+              enrollment.user.name,
+              updatedPractice.title,
+              classroom.name,
+              updatedPractice.deadline
+            );
+          }
+        });
+      }
+    } catch (emailError) {
+      console.error('Error enviando correos de actualización de práctica:', emailError);
     }
 
     return res.status(200).json({
