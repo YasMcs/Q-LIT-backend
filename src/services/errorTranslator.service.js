@@ -48,11 +48,11 @@ export const translateSqlError = async (error, sqlQuery) => {
   const fallback = getFallbackTranslation(error, sqlQuery);
 
   if (!ai) {
-    return fallback;
+    return { ...fallback, isAiGenerated: false };
   }
 
   const prompt = `
-Eres Q-LIT, un asistente pedagógico de base de datos SQL.
+Eres Lumi, un asistente pedagógico de base de datos SQL.
 Un estudiante escribió la siguiente consulta SQL:
 \`\`\`sql
 ${sqlQuery}
@@ -62,8 +62,8 @@ Esta consulta falló en la base de datos MySQL con el siguiente error original e
 "${originalMessage}"
 
 Tu tarea es:
-1. Traducir y explicar el error de forma clara y amigable en español. Sé empático y pedagógico.
-2. Identificar el problema exacto en la consulta del estudiante y proporcionarle una sugerencia corta, directa y práctica en español sobre cómo solucionarlo (por ejemplo: sugerir corregir un JOIN, una columna mal escrita, etc.).
+1. Traducir y explicar el error de forma clara y amigable en español. Sé empático y pedagógico. NO uses emojis en tu respuesta.
+2. Identificar el problema exacto en la consulta del estudiante y proporcionarle una sugerencia corta, directa y práctica en español sobre cómo solucionarlo (por ejemplo: sugerir corregir un JOIN, una columna mal escrita, etc.). NO uses emojis en tu respuesta.
 
 Devuelve tu respuesta únicamente en el siguiente formato JSON, sin comillas Markdown de bloque de código \`\`\`json:
 {
@@ -75,7 +75,7 @@ Devuelve tu respuesta únicamente en el siguiente formato JSON, sin comillas Mar
   try {
     // Definimos una promesa de timeout de 1.5 segundos
     const timeoutPromise = new Promise((_, reject) =>
-      setTimeout(() => reject(new Error('Timeout de la API de IA')), 1500)
+      setTimeout(() => reject(new Error('Timeout de la API de IA')), 5000)
     );
 
     // Llamamos a la API de Gemini
@@ -94,11 +94,12 @@ Devuelve tu respuesta únicamente en el siguiente formato JSON, sin comillas Mar
     const result = await Promise.race([geminiPromise, timeoutPromise]);
     return {
       mensaje: result.mensaje || fallback.mensaje,
-      sugerencia: result.sugerencia || fallback.sugerencia
+      sugerencia: result.sugerencia || fallback.sugerencia,
+      isAiGenerated: true
     };
 
   } catch (err) {
     console.warn("⚠️ Error en traducción por IA (o timeout). Usando diccionario local de fallback:", err.message);
-    return fallback;
+    return { ...fallback, isAiGenerated: false };
   }
 };

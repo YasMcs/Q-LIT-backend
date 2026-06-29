@@ -25,17 +25,10 @@ export const startPractice = async (req, res, next) => {
       }
     });
 
-    if (submission && (submission.reviewStatus === "pendiente" || submission.reviewStatus === "calificada")) {
-      return res.status(403).json({
-        error: {
-          code: 'FORBIDDEN',
-          message: 'Ya has entregado esta práctica y no puedes volver a ingresar.'
-        }
-      });
-    }
+    const isReadOnly = submission && (submission.reviewStatus === "pendiente" || submission.reviewStatus === "calificada");
 
     // Verificar si la entrega está bloqueada por fecha límite
-    if (practice.deadline && practice.closeLateSubmissions) {
+    if (!isReadOnly && practice.deadline && practice.closeLateSubmissions) {
       const isLate = new Date() > new Date(practice.deadline);
       if (isLate) {
         return res.status(403).json({
@@ -68,15 +61,27 @@ export const startPractice = async (req, res, next) => {
       }
 
       // 2. Crear la submission con estado "en_progreso"
-      submission = await prisma.submission.create({
-        data: {
-          userId,
-          practiceId,
-          generatedStatement: statementText,
-          setupSql: setupSql,
-          reviewStatus: "en_progreso"
+      try {
+        submission = await prisma.submission.create({
+          data: {
+            userId,
+            practiceId,
+            generatedStatement: statementText,
+            setupSql: setupSql,
+            reviewStatus: "en_progreso"
+          }
+        });
+      } catch (err) {
+        if (err.code === 'P2002') { // Unique constraint failed (race condition from StrictMode)
+          submission = await prisma.submission.findUnique({
+            where: {
+              userId_practiceId: { userId, practiceId }
+            }
+          });
+        } else {
+          throw err;
         }
-      });
+      }
     }
 
     // Devolver la práctica junto con el statement generado
@@ -96,7 +101,9 @@ export const startPractice = async (req, res, next) => {
           id: submission.id,
           generatedStatement: submission.generatedStatement,
           studentSqlCode: submission.studentSqlCode,
-          reviewStatus: submission.reviewStatus
+          executionResult: typeof submission.executionResult === 'string' ? JSON.parse(submission.executionResult) : submission.executionResult,
+          reviewStatus: submission.reviewStatus,
+          isReadOnly: isReadOnly
         }
       }
     });

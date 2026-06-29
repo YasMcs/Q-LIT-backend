@@ -43,7 +43,7 @@ export const evaluateSqlSubmission = async (studentSqlCode, practiceObjective, c
       },
       feedback: {
         type: Type.STRING,
-        description: "Un mensaje amigable y educativo dirigido al alumno explicando en qué falló o felicitándolo si todo está perfecto. Máximo 3 oraciones."
+        description: "Un mensaje amigable y educativo dirigido al alumno explicando en qué falló o felicitándolo si todo está perfecto. Máximo 3 oraciones. NO utilices emojis en tu respuesta."
       }
     },
     required: ["evaluations", "feedback"]

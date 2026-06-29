@@ -127,6 +127,8 @@ export const updatePractice = async (req, res, next) => {
     let deadline = existingPractice.deadline;
     if (req.body.deadlineIso) {
       deadline = new Date(req.body.deadlineIso);
+    } else if (req.body.deadline) {
+      deadline = new Date(req.body.deadline);
     } else if (dueDate) {
       const time = dueTime || '23:59';
       deadline = new Date(`${dueDate}T${time}:00`);

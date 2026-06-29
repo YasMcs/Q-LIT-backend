@@ -37,7 +37,7 @@ export const executePracticeQuery = async (req, res, next) => {
     
     // Combinamos el mensaje y la sugerencia en una sola cadena con saltos de línea
     // para que funcione de forma inmediata con el código actual del frontend.
-    const combinedMessage = `${translation.mensaje}\n\n💡 Sugerencia: ${translation.sugerencia}`;
+    const combinedMessage = `${translation.mensaje}\n\nSugerencia: ${translation.sugerencia}`;
 
     return res.status(400).json({
       status: "error",
@@ -45,6 +45,7 @@ export const executePracticeQuery = async (req, res, next) => {
         message: combinedMessage,
         mensaje: translation.mensaje,
         suggestion: translation.sugerencia,
+        isAiGenerated: translation.isAiGenerated,
         rawMessage: error.message 
       }
     });
