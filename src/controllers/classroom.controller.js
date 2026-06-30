@@ -174,6 +174,14 @@ export const joinClassroom = async (req, res, next) => {
     });
 
     if (existingEnrollment) {
+      if (existingEnrollment.isArchived) {
+        return res.status(403).json({ 
+          error: { 
+            code: 'FORBIDDEN', 
+            message: 'Ya no puedes volver a unirte a este laboratorio porque te has salido de él.' 
+          } 
+        });
+      }
       return res.status(400).json({ error: { code: 'CONFLICT', message: 'Ya estás inscrito en este laboratorio' } });
     }
 
@@ -194,10 +202,13 @@ export const joinClassroom = async (req, res, next) => {
 export const getClassroomsByStudent = async (req, res, next) => {
   try {
     const userId = req.user?.id;
+    const { archived } = req.query;
+    const showArchived = archived === 'true';
 
     const enrollments = await prisma.enrollment.findMany({
       where: { 
         userId,
+        isArchived: showArchived,
         classroom: {
           isArchived: false
         }
@@ -216,10 +227,80 @@ export const getClassroomsByStudent = async (req, res, next) => {
       id: e.classroom.id,
       title: e.classroom.name,
       teacher: e.classroom.teacher?.name || "Profesor",
+      isArchived: e.isArchived,
       envStatus: "Terminal Ready" // Status para el frontend
     }));
 
     res.status(200).json({ data: formattedClassrooms });
+  } catch (error) {
+    next(error);
+  }
+};
+
+export const leaveClassroom = async (req, res, next) => {
+  try {
+    const classroomId = req.params.id;
+    const userId = req.user?.id;
+
+    if (!userId) {
+      return res.status(401).json({ error: { message: "No autorizado" } });
+    }
+
+    const enrollment = await prisma.enrollment.findUnique({
+      where: {
+        userId_classroomId: {
+          userId,
+          classroomId
+        }
+      }
+    });
+
+    if (!enrollment) {
+      return res.status(404).json({ error: { code: 'NOT_FOUND', message: 'Inscripción no encontrada' } });
+    }
+
+    await prisma.enrollment.update({
+      where: {
+        id: enrollment.id
+      },
+      data: {
+        isArchived: true
+      }
+    });
+
+    res.status(200).json({ message: 'Te has salido exitosamente del laboratorio' });
+  } catch (error) {
+    next(error);
+  }
+};
+
+export const unarchiveClassroomStudent = async (req, res, next) => {
+  try {
+    const classroomId = req.params.id;
+    const userId = req.user?.id;
+    if (!userId) {
+      return res.status(401).json({ error: { message: "No autorizado" } });
+    }
+    const enrollment = await prisma.enrollment.findUnique({
+      where: {
+        userId_classroomId: {
+          userId,
+          classroomId
+        }
+      }
+    });
+    if (!enrollment) {
+      return res.status(404).json({ error: { code: 'NOT_FOUND', message: 'Inscripción no encontrada' } });
+    }
+    await prisma.enrollment.update({
+      where: {
+        id: enrollment.id
+      },
+      data: {
+        isArchived: false
+      }
+    });
+    res.status(200).json({ message: 'Laboratorio desarchivado exitosamente' });
   } catch (error) {
     next(error);
   }
