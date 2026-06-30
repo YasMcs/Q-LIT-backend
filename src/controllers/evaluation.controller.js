@@ -121,8 +121,10 @@ export const evaluateSubmission = async (req, res, next) => {
       status: 'success',
       data: {
         score,
+        maxScore: checklist.reduce((sum, c) => sum + c.maxPoints, 0),
         feedback: evaluationResult.feedback,
-        checklistResults
+        aiFailed,
+        evaluations: finalEvaluations
       }
     });
 

@@ -34,6 +34,15 @@ export const createPractice = async (req, res, next) => {
       deadline = new Date(`${dueDate}T${time}:00`);
     }
 
+    if (deadline && deadline < new Date()) {
+      return res.status(400).json({
+        error: {
+          code: 'BAD_REQUEST',
+          message: 'La fecha límite de entrega no puede estar en el pasado.'
+        }
+      });
+    }
+
     // Usar la descripción proporcionada directamente
     const fullDescription = (description || '').trim();
 
@@ -134,6 +143,15 @@ export const updatePractice = async (req, res, next) => {
       deadline = new Date(`${dueDate}T${time}:00`);
     }
 
+    if (deadline && deadline < new Date()) {
+      return res.status(400).json({
+        error: {
+          code: 'BAD_REQUEST',
+          message: 'La fecha límite de entrega no puede estar en el pasado.'
+        }
+      });
+    }
+
     const fullDescription = description !== undefined 
       ? (description || '').trim()
       : existingPractice.description;
@@ -224,6 +242,13 @@ export const getPracticesByClassroom = async (req, res, next) => {
 
     const include = {
       checklistItems: true,
+      _count: {
+        select: {
+          submissions: {
+            where: { reviewStatus: 'pendiente' }
+          }
+        }
+      }
     };
     if (userId) {
       include.submissions = {

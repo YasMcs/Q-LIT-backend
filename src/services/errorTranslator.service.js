@@ -96,9 +96,9 @@ Devuelve tu respuesta únicamente en el siguiente formato JSON, sin comillas Mar
 `;
 
   try {
-    // Definimos una promesa de timeout de 5 segundos
+    // Definimos una promesa de timeout de 15 segundos
     const timeoutPromise = new Promise((_, reject) =>
-      setTimeout(() => reject(new Error('Timeout de la API de IA')), 5000)
+      setTimeout(() => reject(new Error('Timeout de la API de IA')), 15000)
     );
 
     // Llamamos a la API de Gemini

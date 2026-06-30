@@ -6,9 +6,9 @@ export const executePracticeQuery = async (req, res, next) => {
   const { practiceId } = req.params;
   const { sqlQuery, activeDb } = req.body;
 
+  let userId = null;
   try {
-
-    const userId = req.user.id;
+    userId = req.user?.id;
 
     if (!sqlQuery || !sqlQuery.trim()) {
       return res.status(400).json({ error: { message: "La consulta SQL no puede estar vacía." } });
