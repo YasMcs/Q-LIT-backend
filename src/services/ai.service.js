@@ -1,11 +1,7 @@
-import { GoogleGenAI, Type } from '@google/genai';
-import dotenv from 'dotenv';
-dotenv.config();
+import { Type } from '@google/genai';
+import { getAiClient } from './aiClient.service.js';
 
-// Inicializamos el cliente de Gemini
-// Usa la clave desde process.env.GEMINI_API_KEY
-const ai = new GoogleGenAI({}); 
-
+// Ya no inicializamos el cliente estático aquí, lo llamamos en cada petición
 /**
  * Evalúa el código SQL de un alumno contra una lista de cotejo.
  * @param {string} studentSqlCode - El código SQL escrito por el alumno
@@ -14,8 +10,9 @@ const ai = new GoogleGenAI({});
  * @returns {Object} JSON con las calificaciones booleanas y la retroalimentación
  */
 export const evaluateSqlSubmission = async (studentSqlCode, practiceObjective, checklist) => {
-  if (!process.env.GEMINI_API_KEY) {
-    throw new Error('GEMINI_API_KEY no está configurada en el servidor');
+  const ai = getAiClient();
+  if (!ai) {
+    throw new Error('No hay API Keys de Gemini configuradas en el servidor');
   }
 
   // 1. Armamos el esquema estructurado que queremos que Gemini nos devuelva

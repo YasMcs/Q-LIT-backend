@@ -1,8 +1,4 @@
-import { GoogleGenAI } from '@google/genai';
-import dotenv from 'dotenv';
-dotenv.config();
-
-const ai = process.env.GEMINI_API_KEY ? new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY }) : null;
+import { getAiClient } from './aiClient.service.js';
 
 /**
   Diccionario local para traducción y sugerencias rápidas (fallback)
@@ -64,6 +60,7 @@ export const translateSqlError = async (error, sqlQuery) => {
   const originalMessage = error.message || String(error);
   const fallback = getFallbackTranslation(error, sqlQuery);
 
+  const ai = getAiClient();
   if (!ai) {
     return { ...fallback, isAiGenerated: false };
   }
