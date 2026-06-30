@@ -18,11 +18,18 @@ export const evaluateSubmission = async (req, res, next) => {
     }
 
     // Llamamos al servicio de Inteligencia Artificial
-    const evaluationResult = await aiService.evaluateSqlSubmission(
-      studentSqlCode,
-      practiceObjective,
-      checklist
-    );
+    let evaluationResult = { evaluations: [], feedback: "La IA no pudo evaluar tu entrega en este momento, pero ha sido enviada con éxito para que tu maestro la califique manualmente." };
+    let aiFailed = false;
+    try {
+      evaluationResult = await aiService.evaluateSqlSubmission(
+        studentSqlCode,
+        practiceObjective,
+        checklist
+      );
+    } catch (aiError) {
+      console.error("[AI Evaluation Error] Evaluacion fallida, guardando como pendiente:", aiError);
+      aiFailed = true;
+    }
 
     // Intentar buscar la submission si se proporciona submissionId o practiceId + userId
     let submission = null;
@@ -96,27 +103,22 @@ export const evaluateSubmission = async (req, res, next) => {
       }
     }
 
-    // Mapear los resultados al formato esperado por el frontend
     let score = 0;
-    const checklistResults = (evaluationResult.evaluations || []).map(ev => {
-      const originalItem = checklist.find(c => c.id === ev.checklistItemId);
-      const maxPoints = originalItem ? originalItem.maxPoints : 0;
-      const criterion = originalItem ? (originalItem.criterion || originalItem.text || "") : "";
-      const earnedPoints = ev.aiComplies ? maxPoints : 0;
-      score += earnedPoints;
-
+    const finalEvaluations = checklist.map(c => {
+      const aiEv = evaluationResult.evaluations.find(ev => ev.checklistItemId === c.id);
+      if (aiEv && aiEv.aiComplies) {
+        score += c.maxPoints;
+      }
       return {
-        checklistItemId: ev.checklistItemId,
-        criterion,
-        earnedPoints,
-        maxPoints,
-        comment: ev.aiComplies ? "Implementado correctamente" : "No cumple con el criterio"
+        id: c.id,
+        criterion: c.criterion || c.text || "",
+        maxPoints: c.maxPoints,
+        aiComplies: aiEv ? aiEv.aiComplies : null
       };
     });
 
-    // Devolvemos el JSON estructurado al cliente
     res.status(200).json({
-      message: "Evaluación completada con éxito",
+      status: 'success',
       data: {
         score,
         feedback: evaluationResult.feedback,

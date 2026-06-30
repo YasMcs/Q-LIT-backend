@@ -21,23 +21,38 @@ export const getClassroomsByTeacher = async (req, res, next) => {
         isArchived: showArchived
       },
       orderBy: { createdAt: 'desc' },
-      include: {
-        _count: {
-          select: { enrollments: true, practices: true }
+        include: {
+          _count: {
+            select: { enrollments: true, practices: true }
+          },
+          practices: {
+            include: {
+              _count: {
+                select: {
+                  submissions: {
+                    where: { reviewStatus: 'pendiente' }
+                  }
+                }
+              }
+            }
+          }
         }
-      }
     });
 
     // Mapeamos para que coincida con el formato esperado por el frontend
-    const formattedClassrooms = classrooms.map(c => ({
-      id: c.id,
-      title: c.name,
-      group: c.group || c.inviteCode, 
-      inviteCode: c.inviteCode,
-      studentsCount: c._count.enrollments,
-      pendingReviews: 0, // Se calculará después
-      createdAt: c.createdAt
-    }));
+    const formattedClassrooms = classrooms.map(c => {
+      const pendingReviews = c.practices.reduce((sum, p) => sum + p._count.submissions, 0);
+      
+      return {
+        id: c.id,
+        title: c.name,
+        group: c.group || c.inviteCode, 
+        inviteCode: c.inviteCode,
+        studentsCount: c._count.enrollments,
+        pendingReviews,
+        createdAt: c.createdAt
+      };
+    });
 
     res.status(200).json({ data: formattedClassrooms });
   } catch (error) {
@@ -65,7 +80,16 @@ export const getClassroomById = async (req, res, next) => {
           }
         },
         practices: {
-          orderBy: { createdAt: 'desc' }
+          orderBy: { createdAt: 'desc' },
+          include: {
+            _count: {
+              select: {
+                submissions: {
+                  where: { reviewStatus: 'pendiente' }
+                }
+              }
+            }
+          }
         }
       }
     });
@@ -639,6 +663,7 @@ export const getTeacherStudents = async (req, res, next) => {
           id: `${student.id}_${cls.id}`,
           name: student.name || "Estudiante",
           email: student.email || "",
+          image: student.image || null,
           group: groupName,
           average,
           practices: practicesHistory
