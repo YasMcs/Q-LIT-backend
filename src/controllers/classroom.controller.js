@@ -225,6 +225,7 @@ export const getClassroomsByStudent = async (req, res, next) => {
 
     const formattedClassrooms = enrollments.map(e => ({
       id: e.classroom.id,
+      enrollmentId: e.id,
       title: e.classroom.name,
       teacher: e.classroom.teacher?.name || "Profesor",
       isArchived: e.isArchived,
@@ -232,6 +233,66 @@ export const getClassroomsByStudent = async (req, res, next) => {
     }));
 
     res.status(200).json({ data: formattedClassrooms });
+  } catch (error) {
+    next(error);
+  }
+};
+
+// Endpoint de estado del alumno: retorna si tiene inscripción activa y/o archivadas
+// Útil para que el frontend sepa qué vista mostrar al cargar
+export const getStudentEnrollmentStatus = async (req, res, next) => {
+  try {
+    const userId = req.user?.id;
+
+    if (!userId) {
+      return res.status(401).json({ error: { message: "No autorizado" } });
+    }
+
+    const enrollments = await prisma.enrollment.findMany({
+      where: {
+        userId,
+        classroom: {
+          isArchived: false
+        }
+      },
+      include: {
+        classroom: {
+          include: {
+            teacher: { select: { name: true } }
+          }
+        }
+      },
+      orderBy: { joinedAt: 'desc' }
+    });
+
+    const active = enrollments
+      .filter(e => !e.isArchived)
+      .map(e => ({
+        id: e.classroom.id,
+        enrollmentId: e.id,
+        title: e.classroom.name,
+        teacher: e.classroom.teacher?.name || "Profesor",
+        isArchived: false,
+        envStatus: "Terminal Ready"
+      }));
+
+    const archived = enrollments
+      .filter(e => e.isArchived)
+      .map(e => ({
+        id: e.classroom.id,
+        enrollmentId: e.id,
+        title: e.classroom.name,
+        teacher: e.classroom.teacher?.name || "Profesor",
+        isArchived: true,
+        envStatus: "Terminal Ready"
+      }));
+
+    res.status(200).json({
+      hasActiveEnrollment: active.length > 0,
+      hasArchivedEnrollments: archived.length > 0,
+      active,
+      archived
+    });
   } catch (error) {
     next(error);
   }

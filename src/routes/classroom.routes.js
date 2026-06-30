@@ -6,6 +6,7 @@ const router = Router();
 
 // Rutas de Alumno (protegidas con BFF Middleware)
 router.post('/join', bffAuthMiddleware, classroomController.joinClassroom);
+router.get('/student/status', bffAuthMiddleware, classroomController.getStudentEnrollmentStatus);
 router.get('/student', bffAuthMiddleware, classroomController.getClassroomsByStudent);
 router.post('/:id/leave', bffAuthMiddleware, classroomController.leaveClassroom);
 router.patch('/:id/unarchive-student', bffAuthMiddleware, classroomController.unarchiveClassroomStudent);
