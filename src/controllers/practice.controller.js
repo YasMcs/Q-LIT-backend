@@ -227,14 +227,32 @@ export const getPracticesByClassroom = async (req, res, next) => {
     };
     if (userId) {
       include.submissions = {
-        where: { userId }
+        where: { userId },
+        include: { evaluations: true }
       };
     }
 
-    const practices = await prisma.practice.findMany({
+    const practicesRaw = await prisma.practice.findMany({
       where: { classroomId },
       include,
       orderBy: { createdAt: 'desc' }
+    });
+
+    const practices = practicesRaw.map(p => {
+      if (p.submissions && p.submissions.length > 0) {
+        const sub = p.submissions[0];
+        if (sub.evaluations && sub.reviewStatus === 'calificada') {
+          let score = 0;
+          sub.evaluations.forEach(ev => {
+            if (ev.teacherComplies) {
+              const item = p.checklistItems.find(i => i.id === ev.checklistItemId);
+              if (item) score += item.maxPoints;
+            }
+          });
+          sub.score = score;
+        }
+      }
+      return p;
     });
 
     res.json(practices);

@@ -35,6 +35,23 @@ const getFallbackTranslation = (error, sqlQuery) => {
   } else if (code === 'ER_NON_UNIQ_ERROR' || message.toLowerCase().includes('ambiguous')) {
     mensaje = "Una columna es ambigua porque existe en varias tablas de tu JOIN.";
     sugerencia = "Especifica a qué tabla pertenece la columna usando la nomenclatura 'tabla.columna' (por ejemplo: 'citas.id' o 'medicos.nombre').";
+  } else if (code === 'ER_ROW_IS_REFERENCED_2' || message.toLowerCase().includes('foreign key constraint fails') || message.toLowerCase().includes('a foreign key constraint fails')) {
+    mensaje = "No puedes eliminar o actualizar este registro porque está siendo utilizado (referenciado) por otra tabla.";
+    sugerencia = "Concepto de Llave Foránea: Este registro tiene datos asociados en otra tabla (por ejemplo, pedidos, citas, etc.). Primero debes revisar las otras tablas para encontrar y entender qué registros dependen de él, o elegir eliminar un registro que no tenga dependencias. ¡Puedes usar SELECT para explorar los datos!";
+  } else if (code === 'ER_NO_REFERENCED_ROW_2' || (message.toLowerCase().includes('foreign key constraint fails') && message.toLowerCase().includes('insert'))) {
+    mensaje = "Estás intentando guardar un registro que hace referencia a un ID que no existe en otra tabla.";
+    sugerencia = "Concepto de Llave Foránea: Estás asignando una categoría, cliente o relación que no existe. Usa SELECT en la tabla original para ver qué IDs sí están disponibles antes de hacer tu INSERT.";
+  } else if (code === 'ER_DUP_ENTRY' || message.toLowerCase().includes('duplicate entry')) {
+    mensaje = "Estás intentando insertar un registro con un identificador (Llave Primaria) que ya existe.";
+    sugerencia = "Cada registro debe tener un ID único. Revisa qué IDs ya están ocupados en la tabla o cambia tu ID por uno diferente para que no choque con los existentes.";
+  } else if (code === 'ER_DATA_TOO_LONG' || message.toLowerCase().includes('data too long')) {
+    mensaje = "El texto o valor que intentas guardar es demasiado largo para la columna.";
+    sugerencia = "Revisa el diccionario de entidades para ver la longitud máxima permitida (ej. VARCHAR(50)) y acorta tu texto para que encaje.";
+  } else if (code === 'ER_BAD_NULL_ERROR' || message.toLowerCase().includes('cannot be null')) {
+    const match = message.match(/Column '(.+?)' cannot be null/i);
+    const colName = match ? match[1] : 'una columna';
+    mensaje = `Intentaste dejar vacía la columna ${colName ? `'${colName}'` : ''}, pero es obligatoria.`;
+    sugerencia = "Esta columna no acepta valores nulos. Asegúrate de incluirla en tu INSERT o UPDATE y proporcionarle un valor válido.";
   }
 
   return { mensaje, sugerencia };
@@ -64,6 +81,7 @@ Esta consulta falló en la base de datos MySQL con el siguiente error original e
 Tu tarea es:
 1. Traducir y explicar el error de forma clara y amigable en español. Sé empático y pedagógico. NO uses emojis en tu respuesta.
 2. Identificar el problema exacto en la consulta del estudiante y proporcionarle una sugerencia corta, directa y práctica en español sobre cómo solucionarlo (por ejemplo: sugerir corregir un JOIN, una columna mal escrita, etc.). NO uses emojis en tu respuesta.
+3. Si el error involucra conceptos fundamentales (como Llaves Foráneas, duplicidad de Llave Primaria, o tipos de datos), explica el concepto brevemente y anímalos a usar "SELECT" para explorar las tablas y entender qué datos están causando el conflicto.
 
 Devuelve tu respuesta únicamente en el siguiente formato JSON, sin comillas Markdown de bloque de código \`\`\`json:
 {
@@ -73,7 +91,7 @@ Devuelve tu respuesta únicamente en el siguiente formato JSON, sin comillas Mar
 `;
 
   try {
-    // Definimos una promesa de timeout de 1.5 segundos
+    // Definimos una promesa de timeout de 5 segundos
     const timeoutPromise = new Promise((_, reject) =>
       setTimeout(() => reject(new Error('Timeout de la API de IA')), 5000)
     );
