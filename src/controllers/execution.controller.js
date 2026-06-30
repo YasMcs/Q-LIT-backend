@@ -32,8 +32,8 @@ export const executePracticeQuery = async (req, res, next) => {
       data: result
     });
   } catch (error) {
-    // Traducir el error SQL al español y obtener sugerencia
-    const translation = await translateSqlError(error, sqlQuery);
+    // Traducir el error SQL al español, obtener sugerencia y registrar el error
+    const translation = await translateSqlError(error, sqlQuery, userId, practiceId);
     
     // Combinamos el mensaje y la sugerencia en una sola cadena con saltos de línea
     // para que funcione de forma inmediata con el código actual del frontend.

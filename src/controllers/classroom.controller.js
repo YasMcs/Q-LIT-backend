@@ -339,11 +339,14 @@ export const getTeacherStatistics = async (req, res, next) => {
     ];
 
     const classStats = [];
+    const allStudentIds = new Set();
 
     // Iterar sobre cada clase
     for (const cls of classrooms) {
       const numStudents = cls.enrollments.length;
       const numPractices = cls.practices.length;
+      
+      cls.enrollments.forEach(enr => allStudentIds.add(enr.userId));
       
       totalExpectedSubmissions += numStudents * numPractices;
       
@@ -453,24 +456,68 @@ export const getTeacherStatistics = async (req, res, next) => {
 
     const studentsAtRisk = studentsRiskIds.size;
 
-    // Calcular fallas de Temas Críticos
-    const struggles = CATEGORIES
-      .filter(cat => cat.total > 0)
-      .map(cat => ({
-        topic: cat.label,
-        failRate: Math.round((cat.failed / cat.total) * 100),
-        level: (cat.failed / cat.total) >= 0.4 ? 'high' : (cat.failed / cat.total) >= 0.2 ? 'medium' : 'low'
-      }))
-      .sort((a, b) => b.failRate - a.failRate)
-      .slice(0, 4);
+    // --- NUEVO: Temas Críticos e Índice de Mejora usando PracticeErrorLog ---
+    let struggles = [];
+    let improvementIndex = 100;
+
+    const errorLogs = await prisma.practiceErrorLog.findMany({
+      where: {
+        userId: { in: Array.from(allStudentIds) }
+      }
+    });
+
+    if (errorLogs.length > 0) {
+      // Calcular Temas Críticos (struggles)
+      const conceptCounts = {};
+      errorLogs.forEach(log => {
+        const concept = log.sqlConcept || "Sintaxis General";
+        if (!conceptCounts[concept]) conceptCounts[concept] = 0;
+        conceptCounts[concept]++;
+      });
+
+      const totalErrors = errorLogs.length;
+      struggles = Object.entries(conceptCounts)
+        .map(([concept, count]) => ({
+          topic: concept,
+          failRate: Math.round((count / totalErrors) * 100),
+          level: (count / totalErrors) >= 0.4 ? 'high' : (count / totalErrors) >= 0.2 ? 'medium' : 'low'
+        }))
+        .sort((a, b) => b.failRate - a.failRate)
+        .slice(0, 4);
+
+      // Calcular Índice de Mejora (Tasa de Reincidencia)
+      // Agrupamos por {userId-practiceId-sqlConcept} para encontrar reincidencias
+      const errorSessions = {};
+      let reincidencias = 0;
+      
+      errorLogs.forEach(log => {
+        const concept = log.sqlConcept || "General";
+        const key = `${log.userId}-${log.practiceId}-${concept}`;
+        if (!errorSessions[key]) {
+          errorSessions[key] = 1;
+        } else {
+          if (errorSessions[key] === 1) {
+            // Solo contamos como "sesión reincidente" la primera vez que se repite
+            reincidencias++;
+          }
+          errorSessions[key]++;
+        }
+      });
+
+      const totalSessions = Object.keys(errorSessions).length;
+      if (totalSessions > 0) {
+        const reincidenceRate = (reincidencias / totalSessions) * 100;
+        improvementIndex = Math.max(0, Math.round(100 - reincidenceRate));
+      }
+    }
 
     // Fallbacks si no hay temas registrados aún
     if (struggles.length === 0) {
       struggles.push(
-        { "topic": "Cláusula ORDER BY", "failRate": 0, "level": "low" },
-        { "topic": "Funciones de Agregación (COUNT, SUM)", "failRate": 0, "level": "low" },
-        { "topic": "Delimitador LIMIT", "failRate": 0, "level": "low" },
-        { "topic": "Búsqueda con LIKE", "failRate": 0, "level": "low" }
+        { "topic": "Cláusula JOIN", "failRate": 0, "level": "low" },
+        { "topic": "Cláusula WHERE", "failRate": 0, "level": "low" },
+        { "topic": "Funciones de Agregación", "failRate": 0, "level": "low" },
+        { "topic": "Sintaxis General", "failRate": 0, "level": "low" }
       );
     }
 
@@ -478,7 +525,8 @@ export const getTeacherStatistics = async (req, res, next) => {
       globalStats: {
         learningPercentage,
         deliveryRate,
-        studentsAtRisk
+        studentsAtRisk,
+        improvementIndex
       },
       struggles,
       classStats

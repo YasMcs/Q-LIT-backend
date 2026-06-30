@@ -49,6 +49,7 @@ model User {
   classroomsCreated Classroom[]  @relation("TeacherClassrooms")
   enrollments       Enrollment[]
   submissions       Submission[]
+  practiceErrorLogs PracticeErrorLog[]
 }
 
 model VerificationToken {
@@ -111,6 +112,7 @@ model Practice {
 
   checklistItems      ChecklistItem[]
   submissions         Submission[]
+  errorLogs           PracticeErrorLog[]
 
   @@index([classroomId])
 }
@@ -162,4 +164,21 @@ model ChecklistEvaluation {
   checklistItem     ChecklistItem @relation(fields: [checklistItemId], references: [id], onDelete: Cascade)
 
   @@unique([submissionId, checklistItemId])
+}
+
+model PracticeErrorLog {
+  id              String   @id @default(cuid())
+  errorCategory   String   // ej. "Error de Sintaxis", "Tabla inexistente"
+  sqlConcept      String   // ej. "JOIN", "WHERE", "General"
+  originalMessage String?  @db.Text
+  createdAt       DateTime @default(now())
+
+  userId          String
+  user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  practiceId      String
+  practice        Practice @relation(fields: [practiceId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([practiceId])
 }

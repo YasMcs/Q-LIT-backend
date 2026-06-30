@@ -1,9 +1,5 @@
-import { GoogleGenAI } from '@google/genai';
 import { getCatalogs } from './catalog.service.js';
-import dotenv from 'dotenv';
-dotenv.config();
-
-const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
+import { getAiClient } from './aiClient.service.js';
 
 export const generateUniqueProblem = async (description, requiredFunctions, activeDb) => {
   try {
@@ -42,6 +38,11 @@ Instrucciones para ti:
 }
 `;
 
+    const ai = getAiClient();
+    if (!ai) {
+      throw new Error("No hay API Keys de Gemini disponibles");
+    }
+
     const response = await ai.models.generateContent({
       model: 'gemini-2.5-flash',
       contents: prompt,
@@ -53,10 +54,9 @@ Instrucciones para ti:
     return response.text;
   } catch (error) {
     console.error("Error al generar enunciado con Gemini:", error);
-    // Fallback in case of AI error
-    return JSON.stringify({
-      historia: `Problema técnico: No se pudo generar la historia personalizada. Por favor, resuelve el siguiente objetivo: ${description}`,
-      setup_sql: ""
-    });
+    // Lanzamos el error para que el controlador (submission) falle 
+    // y no guarde un texto de error roto en la base de datos.
+    // Así, el alumno puede refrescar la página y volver a intentar.
+    throw new Error("No se pudo generar el enunciado. La API de IA está temporalmente no disponible.");
   }
 };
