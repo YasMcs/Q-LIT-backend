@@ -7,8 +7,7 @@ export const validateRequest = (schema) => {
       next();
     } catch (error) {
       if (error instanceof ZodError) {
-        const issues = error.issues ?? error.errors ?? [];
-        const errorMessages = issues.map((issue) => `${issue.path.join('.')}: ${issue.message}`);
+        const errorMessages = error.errors.map((issue) => `${issue.path.join('.')}: ${issue.message}`);
         return res.status(400).json({
           error: {
             code: 'BAD_REQUEST',
