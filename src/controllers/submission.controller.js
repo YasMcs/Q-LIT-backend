@@ -235,17 +235,22 @@ export const getPracticeSubmissions = async (req, res, next) => {
         submittedAt: sub.submittedAt,
         sqlQuery: sub.studentSqlCode,
         executionResult: sub.executionResult ? JSON.parse(sub.executionResult) : null,
-        checklist: sub.evaluations.map(ev => ({
-          id: ev.checklistItem?.id,
-          text: ev.checklistItem?.criterion,
-          maxPoints: ev.checklistItem?.maxPoints,
-          aiComplies: ev.aiComplies,
-          teacherComplies: ev.teacherComplies,
-          iaPoints: ev.aiComplies ? ev.checklistItem?.maxPoints : 0,
-          teacherPoints: ev.teacherComplies !== null 
-            ? (ev.teacherComplies ? ev.checklistItem?.maxPoints : 0) 
-            : (ev.aiComplies ? ev.checklistItem?.maxPoints : 0)
-        }))
+        checklist: practice.checklistItems.map(item => {
+          const ev = sub.evaluations.find(e => e.checklistItemId === item.id);
+          return {
+            id: item.id,
+            text: item.criterion,
+            maxPoints: item.maxPoints,
+            aiComplies: ev ? ev.aiComplies : false,
+            teacherComplies: ev ? ev.teacherComplies : null,
+            iaPoints: (ev && ev.aiComplies) ? item.maxPoints : 0,
+            teacherPoints: ev 
+              ? (ev.teacherComplies !== null 
+                  ? (ev.teacherComplies ? item.maxPoints : 0) 
+                  : (ev.aiComplies ? item.maxPoints : 0))
+              : 0
+          };
+        })
       };
     });
 
