@@ -588,11 +588,14 @@ export const getTeacherStatistics = async (req, res, next) => {
       // Rendimiento de esta clase
       const avgClassScore = classSubmissionsCount > 0 
         ? Math.round(classScoreSum / classSubmissionsCount) 
-        : 100; // Por defecto 100 si no hay entregas
+        : null; // null si no hay entregas
       
-      let status = 'good';
-      if (avgClassScore < 60) status = 'poor';
-      else if (avgClassScore < 80) status = 'average';
+      let status = 'empty';
+      if (avgClassScore !== null) {
+        status = 'good';
+        if (avgClassScore < 60) status = 'poor';
+        else if (avgClassScore < 80) status = 'average';
+      }
 
       classStats.push({
         id: cls.id,
