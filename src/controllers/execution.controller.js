@@ -14,6 +14,27 @@ export const executePracticeQuery = async (req, res, next) => {
       return res.status(400).json({ error: { message: "La consulta SQL no puede estar vacía." } });
     }
 
+    // Buscar la práctica para saber a qué aula pertenece
+    const practice = await prisma.practice.findUnique({
+      where: { id: practiceId }
+    });
+    if (!practice) {
+      return res.status(404).json({ error: { message: "Práctica no encontrada." } });
+    }
+
+    const enrollment = await prisma.enrollment.findUnique({
+      where: {
+        userId_classroomId: {
+          userId,
+          classroomId: practice.classroomId
+        }
+      }
+    });
+
+    if (!enrollment || enrollment.isArchived) {
+      return res.status(403).json({ error: { message: "No puedes ejecutar consultas de una práctica de un laboratorio del cual te has salido." } });
+    }
+
     // Buscar submission del alumno para obtener el setupSql
     const submission = await prisma.submission.findUnique({
       where: {

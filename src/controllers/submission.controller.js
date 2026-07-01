@@ -25,7 +25,26 @@ export const startPractice = async (req, res, next) => {
       }
     });
 
-    const isReadOnly = submission && (submission.reviewStatus === "pendiente" || submission.reviewStatus === "calificada");
+    // Verificar si la inscripción está activa o archivada
+    const enrollment = await prisma.enrollment.findUnique({
+      where: {
+        userId_classroomId: {
+          userId,
+          classroomId: practice.classroomId
+        }
+      }
+    });
+
+    const isReadOnly = (submission && (submission.reviewStatus === "pendiente" || submission.reviewStatus === "calificada")) || !enrollment || enrollment.isArchived;
+
+    if ((!enrollment || enrollment.isArchived) && !submission) {
+      return res.status(403).json({
+        error: {
+          code: 'FORBIDDEN',
+          message: 'No puedes iniciar prácticas de un laboratorio del cual te has salido.'
+        }
+      });
+    }
 
     // Verificar si la entrega está bloqueada por fecha límite
     if (!isReadOnly && practice.deadline && practice.closeLateSubmissions) {
