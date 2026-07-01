@@ -7,16 +7,6 @@ export const evaluateSubmission = async (req, res, next) => {
     const { studentSqlCode, executionResult: resultData, practiceObjective, checklist, submissionId, practiceId } = req.body;
     const userId = req.user?.id;
 
-    // Validación básica
-    if (!studentSqlCode || !practiceObjective || !checklist) {
-      return res.status(400).json({
-        error: {
-          code: 'BAD_REQUEST',
-          message: 'Faltan parámetros requeridos: studentSqlCode, practiceObjective, checklist'
-        }
-      });
-    }
-
     // Llamamos al servicio de Inteligencia Artificial
     let evaluationResult = { evaluations: [], feedback: "La IA no pudo evaluar tu entrega en este momento, pero ha sido enviada con éxito para que tu maestro la califique manualmente." };
     let aiFailed = false;
