@@ -22,6 +22,9 @@ export const startPractice = async (req, res, next) => {
           userId,
           practiceId
         }
+      },
+      include: {
+        steps: true
       }
     });
 
@@ -69,11 +72,9 @@ export const startPractice = async (req, res, next) => {
         activeDb
       );
 
-      let statementText = generatedJsonStr;
       let setupSql = null;
       try {
         const parsed = JSON.parse(generatedJsonStr);
-        statementText = parsed.historia;
         setupSql = parsed.setup_sql;
       } catch (e) {
         console.error("Error parseando respuesta de Gemini JSON:", e);
@@ -85,7 +86,7 @@ export const startPractice = async (req, res, next) => {
           data: {
             userId,
             practiceId,
-            generatedStatement: statementText,
+            generatedStatement: generatedJsonStr,
             setupSql: setupSql,
             reviewStatus: "en_progreso"
           }
@@ -122,6 +123,8 @@ export const startPractice = async (req, res, next) => {
           studentSqlCode: submission.studentSqlCode,
           executionResult: typeof submission.executionResult === 'string' ? JSON.parse(submission.executionResult) : submission.executionResult,
           reviewStatus: submission.reviewStatus,
+          currentStep: submission.currentStep,
+          steps: submission.steps || [],
           isReadOnly: isReadOnly
         }
       }
@@ -196,26 +199,14 @@ export const getPracticeSubmissions = async (req, res, next) => {
           checklist: practice.checklistItems.map(item => ({
             id: item.id,
             text: item.criterion,
-            maxPoints: item.maxPoints,
             aiComplies: false,
-            teacherComplies: false,
-            iaPoints: 0,
-            teacherPoints: 0
+            teacherComplies: false
           }))
         };
       }
 
       // Alumno que ya comenzó o entregó
-      let score = 0;
-      sub.evaluations.forEach(ev => {
-        const complies = ev.teacherComplies !== null 
-          ? ev.teacherComplies 
-          : ev.aiComplies;
-        
-        if (complies && ev.checklistItem) {
-          score += ev.checklistItem.maxPoints;
-        }
-      });
+      let score = sub.finalGrade || 0; // Usar la calificación final manual
 
       let status = "IN_PROGRESS";
       if (sub.reviewStatus === "calificada") {
@@ -240,15 +231,8 @@ export const getPracticeSubmissions = async (req, res, next) => {
           return {
             id: item.id,
             text: item.criterion,
-            maxPoints: item.maxPoints,
             aiComplies: ev ? ev.aiComplies : false,
-            teacherComplies: ev ? ev.teacherComplies : null,
-            iaPoints: (ev && ev.aiComplies) ? item.maxPoints : 0,
-            teacherPoints: ev 
-              ? (ev.teacherComplies !== null 
-                  ? (ev.teacherComplies ? item.maxPoints : 0) 
-                  : (ev.aiComplies ? item.maxPoints : 0))
-              : 0
+            teacherComplies: ev ? ev.teacherComplies : null
           };
         })
       };

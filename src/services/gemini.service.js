@@ -26,14 +26,22 @@ El alumno DEBE utilizar obligatoriamente estas palabras clave/funciones en su co
 [${requiredFunctions.join(', ')}]
 
 Instrucciones para ti:
-1. Genera un escenario narrativo muy breve y directo (MÁXIMO 3 oraciones).
-2. Plantea el problema usando las tablas y columnas reales del esquema proporcionado.
-3. NO incluyas la respuesta SQL ni ejemplos de código.
-4. MUY IMPORTANTE: NO menciones, no enlistes y no hagas ninguna referencia a las palabras clave o funciones SQL requeridas. Simplemente plantea el problema de negocio.
-5. DEBES generar también un código SQL válido (DML) de tipo INSERT que inserte los datos necesarios para que el estudiante pueda hacer la práctica.
-6. Devuelve tu respuesta ÚNICAMENTE en un formato JSON válido con la siguiente estructura, sin comillas Markdown de bloque de código \`\`\`json:
+1. Genera un escenario narrativo muy breve y directo (MÁXIMO 2 oraciones).
+2. Plantea el problema dividiéndolo en un flujo de OBJETIVOS lógicos que el estudiante debe resolver en orden. Usando las tablas y columnas reales del esquema proporcionado.
+3. MUY IMPORTANTE: Los objetivos deben ser EXTREMADAMENTE BREVES y CLAROS (MÁXIMO 1 a 2 oraciones cortas). Ve directo al grano sin textos de relleno.
+4. NO incluyas la respuesta SQL ni ejemplos de código en las instrucciones.
+5. NO menciones explícitamente palabras clave SQL en la historia general. En los objetivos, puedes sugerir qué hacer (ej. "selecciona", "elimina").
+6. DEBES generar también un código SQL válido (DML) de tipo INSERT que inserte los datos necesarios para que el estudiante pueda hacer la práctica.
+7. Devuelve tu respuesta ÚNICAMENTE en un formato JSON válido con la siguiente estructura, sin comillas Markdown de bloque de código \`\`\`json:
 {
   "historia": "El escenario narrativo aquí...",
+  "pasos": [
+    {
+      "step": 1,
+      "instruction": "Instrucción corta y clara para el objetivo 1.",
+      "expectedConcept": "SELECT" 
+    }
+  ],
   "setup_sql": "INSERT INTO tabla (col1, col2) VALUES ('val1', 'val2');"
 }
 `;

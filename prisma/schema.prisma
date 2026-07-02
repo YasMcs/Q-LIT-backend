@@ -121,7 +121,6 @@ model Practice {
 model ChecklistItem {
   id          String   @id @default(cuid())
   criterion   String
-  maxPoints   Int
 
   practiceId  String
   practice    Practice @relation(fields: [practiceId], references: [id], onDelete: Cascade)
@@ -138,6 +137,8 @@ model Submission {
   setupSql            String?  @db.Text // El DML generado por la IA para inyectar en la DB
   executionResult     String?  @db.Text // El resultado en formato JSON de la tabla (columnas y filas)
   reviewStatus        String   @default("en_progreso") // en_progreso, pendiente, calificada, no_entregada
+  currentStep         Int      @default(0) // El paso actual en el que se encuentra el estudiante
+  finalGrade          Float?   // Calificación final asignada libremente por el docente
   submittedAt         DateTime @default(now())
 
   userId              String
@@ -147,6 +148,7 @@ model Submission {
   practice            Practice @relation(fields: [practiceId], references: [id], onDelete: Cascade)
 
   evaluations         ChecklistEvaluation[]
+  steps               SubmissionStep[]
 
   @@unique([userId, practiceId]) // Un alumno tiene 1 submission por práctica
   @@index([practiceId])
@@ -165,6 +167,23 @@ model ChecklistEvaluation {
   checklistItem     ChecklistItem @relation(fields: [checklistItemId], references: [id], onDelete: Cascade)
 
   @@unique([submissionId, checklistItemId])
+}
+
+model SubmissionStep {
+  id                String   @id @default(cuid())
+  stepIndex         Int
+  passedAtFirstTry  Boolean? // true si lo logró en el primer intento, false si falló el primer intento
+  attemptsCount     Int      @default(0)
+  finalSqlCode      String?  @db.Text // El código con el que superó el paso
+  completed         Boolean  @default(false)
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  submissionId      String
+  submission        Submission @relation(fields: [submissionId], references: [id], onDelete: Cascade)
+
+  @@unique([submissionId, stepIndex])
+  @@index([submissionId])
 }
 
 model PracticeErrorLog {

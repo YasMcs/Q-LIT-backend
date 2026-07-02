@@ -63,8 +63,7 @@ export const createPractice = async (req, res, next) => {
         classroomId,
         checklistItems: {
           create: criteria.map(c => ({
-            criterion: c.text,
-            maxPoints: c.points
+            criterion: c.text
           }))
         }
       },
@@ -175,8 +174,7 @@ export const updatePractice = async (req, res, next) => {
           checklistItems: {
             deleteMany: {},
             create: criteria.map(c => ({
-              criterion: c.text,
-              maxPoints: c.points
+              criterion: c.text
             }))
           }
         } : {})
@@ -265,14 +263,7 @@ export const getPracticesByClassroom = async (req, res, next) => {
       if (p.submissions && p.submissions.length > 0) {
         const sub = p.submissions[0];
         if (sub.evaluations && sub.reviewStatus === 'calificada') {
-          let score = 0;
-          sub.evaluations.forEach(ev => {
-            if (ev.teacherComplies) {
-              const item = p.checklistItems.find(i => i.id === ev.checklistItemId);
-              if (item) score += item.maxPoints;
-            }
-          });
-          sub.score = score;
+          sub.score = sub.finalGrade || 0;
         }
       }
       return p;

@@ -8,6 +8,7 @@ const router = Router();
 
 // Endpoint que ejecuta la evaluación de IA
 router.post('/', bffAuthMiddleware, validateRequest(evaluateSubmissionSchema), evaluationController.evaluateSubmission);
+router.post('/step', bffAuthMiddleware, evaluationController.evaluateStep);
 router.post('/teacher-grade', evaluationController.confirmTeacherGrade);
 router.post('/assign-zero', evaluationController.assignZeroGrade);
 

@@ -1,6 +1,7 @@
 import * as aiService from '../services/ai.service.js';
 import { prisma } from '../config/db.js';
 import { sendGradedEmail } from '../services/email.service.js';
+import { executeMockQuery } from '../services/sandbox.service.js';
 
 export const evaluateSubmission = async (req, res, next) => {
   try {
@@ -252,6 +253,119 @@ export const assignZeroGrade = async (req, res, next) => {
       message: "Calificación 0 asignada con éxito",
       data: { submissionId: submission.id }
     });
+  } catch (error) {
+    next(error);
+  }
+};
+
+export const evaluateStep = async (req, res, next) => {
+  try {
+    const { submissionId, stepIndex, studentSqlCode, activeDb } = req.body;
+    const userId = req.user?.id;
+
+    if (!submissionId || stepIndex === undefined || !studentSqlCode) {
+      return res.status(400).json({ error: { message: "Faltan parámetros requeridos" } });
+    }
+
+    const submission = await prisma.submission.findUnique({
+      where: { id: submissionId },
+      include: { practice: true }
+    });
+
+    if (!submission || submission.userId !== userId) {
+      return res.status(404).json({ error: { message: "Submission no encontrada" } });
+    }
+
+    // 1. Obtener la instrucción del paso actual
+    let steps = [];
+    try {
+      const parsedStatement = JSON.parse(submission.generatedStatement);
+      steps = parsedStatement.pasos || [];
+    } catch (e) {
+      return res.status(500).json({ error: { message: "Error al parsear el enunciado" } });
+    }
+
+    const currentStepObj = steps.find(s => s.step === stepIndex + 1); // stepIndex suele ser 0-based, o si es 1-based ajustamos.
+    if (!currentStepObj) {
+      return res.status(400).json({ error: { message: "Paso no encontrado en el enunciado" } });
+    }
+
+    // 2. Ejecutar la consulta en la base de datos simulada
+    let executionResultData = null;
+    try {
+      executionResultData = await executeMockQuery(studentSqlCode, activeDb || "punto_venta_db", submission.setupSql);
+    } catch (sqlError) {
+      // Si hay error SQL, se considera como intento fallido y se devuelve el error SQL (o se evalúa igualmente)
+      // Vamos a permitir que el frontend lo maneje
+    }
+
+    // 3. Evaluar con IA (Optimizada para ahorrar tokens si la consulta es correcta)
+    let evaluation = { isCorrect: false, feedback: "Error interno al evaluar." };
+    if (!executionResultData) {
+      evaluation = { isCorrect: false, feedback: "Tu consulta tiene errores de sintaxis y no devolvió resultados." };
+    } else {
+      try {
+        evaluation = await aiService.evaluateStep(studentSqlCode, currentStepObj.instruction);
+      } catch (aiError) {
+        console.error("AI Error en evaluateStep:", aiError);
+      }
+    }
+
+    // 4. Guardar o actualizar el SubmissionStep
+    let stepRecord = await prisma.submissionStep.findUnique({
+      where: {
+        submissionId_stepIndex: {
+          submissionId: submission.id,
+          stepIndex: stepIndex
+        }
+      }
+    });
+
+    if (!stepRecord) {
+      // Primer intento
+      stepRecord = await prisma.submissionStep.create({
+        data: {
+          submissionId: submission.id,
+          stepIndex: stepIndex,
+          passedAtFirstTry: evaluation.isCorrect,
+          attemptsCount: 1,
+          finalSqlCode: evaluation.isCorrect ? studentSqlCode : null,
+          completed: evaluation.isCorrect
+        }
+      });
+    } else {
+      // Intento subsecuente
+      stepRecord = await prisma.submissionStep.update({
+        where: { id: stepRecord.id },
+        data: {
+          attemptsCount: stepRecord.attemptsCount + 1,
+          finalSqlCode: evaluation.isCorrect ? studentSqlCode : stepRecord.finalSqlCode,
+          completed: evaluation.isCorrect ? true : stepRecord.completed
+        }
+      });
+    }
+
+    // 5. Si es correcto, actualizar el currentStep global de la submission si era el paso actual
+    if (evaluation.isCorrect && submission.currentStep === stepIndex) {
+      await prisma.submission.update({
+        where: { id: submission.id },
+        data: {
+          currentStep: stepIndex + 1,
+          // Si era el último paso, podríamos marcarla como 'pendiente' aquí, pero se puede hacer desde el cliente.
+        }
+      });
+    }
+
+    res.status(200).json({
+      status: "success",
+      data: {
+        isCorrect: evaluation.isCorrect,
+        feedback: evaluation.feedback,
+        executionResult: executionResultData,
+        stepRecord
+      }
+    });
+
   } catch (error) {
     next(error);
   }
