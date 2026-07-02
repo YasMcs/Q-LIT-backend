@@ -64,6 +64,7 @@ const evaluationLimiter = rateLimit({
 });
 
 import catalogRoutes from './src/routes/catalog.routes.js';
+import adminRoutes from './src/routes/admin.routes.js';
 
 // Rutas
 app.use('/api/health', healthRoutes);
@@ -72,6 +73,7 @@ app.use('/api/classrooms', classroomRoutes);
 app.use('/api/practices', practiceRoutes);
 app.use('/api/users', userRoutes);
 app.use('/api/catalogs', catalogRoutes);
+app.use('/api/admin', adminRoutes);
 
 // Manejador global de errores (debe ir al final)
 app.use(errorHandler);
