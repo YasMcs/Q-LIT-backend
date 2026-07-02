@@ -529,26 +529,16 @@ export const getTeacherStatistics = async (req, res, next) => {
             
             // Calcular puntaje obtenido en esta entrega
             let subScore = 0;
-            sub.evaluations.forEach(ev => {
-              const complies = ev.teacherComplies !== null ? ev.teacherComplies : ev.aiComplies;
-              if (complies && ev.checklistItem) {
-                subScore += ev.checklistItem.maxPoints;
-              }
-              
-              // Clasificar evaluaciones para Temas Críticos
-              if (ev.checklistItem) {
-                const criterionUpper = (ev.checklistItem.criterion || '').toUpperCase();
-                for (const cat of CATEGORIES) {
-                  const matches = cat.keywords.some(kw => criterionUpper.includes(kw));
-                  if (matches) {
-                    cat.total++;
-                    if (!complies) {
-                      cat.failed++;
-                    }
-                  }
+            if (sub.finalGrade !== null && sub.finalGrade !== undefined) {
+              subScore = sub.finalGrade;
+            } else {
+              sub.evaluations.forEach(ev => {
+                const complies = ev.teacherComplies !== null ? ev.teacherComplies : ev.aiComplies;
+                if (complies && ev.checklistItem) {
+                  subScore += ev.checklistItem.maxPoints;
                 }
-              }
-            });
+              });
+            }
 
             // Normalizar a base 100
             const percentageScore = (subScore / totalPoints) * 100;
@@ -771,12 +761,16 @@ export const getTeacherStudents = async (req, res, next) => {
 
           if (sub && (sub.reviewStatus === 'pendiente' || sub.reviewStatus === 'calificada')) {
             // Calcular score
-            sub.evaluations.forEach(ev => {
-              const complies = ev.teacherComplies !== null ? ev.teacherComplies : ev.aiComplies;
-              if (complies && ev.checklistItem) {
-                score += ev.checklistItem.maxPoints;
-              }
-            });
+            if (sub.finalGrade !== null && sub.finalGrade !== undefined) {
+              score = sub.finalGrade;
+            } else {
+              sub.evaluations.forEach(ev => {
+                const complies = ev.teacherComplies !== null ? ev.teacherComplies : ev.aiComplies;
+                if (complies && ev.checklistItem) {
+                  score += ev.checklistItem.maxPoints;
+                }
+              });
+            }
             
             // Normalizar a base 100
             score = Math.round((score / totalPoints) * 100);

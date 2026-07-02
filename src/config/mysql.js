@@ -14,6 +14,7 @@ export const getMysqlPool = () => {
     pool = mysql.createPool({
       uri: cleanUrl,
       multipleStatements: true,
+      dateStrings: true,
       ssl: {
         rejectUnauthorized: false
       }

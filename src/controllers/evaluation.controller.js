@@ -5,22 +5,8 @@ import { executeMockQuery } from '../services/sandbox.service.js';
 
 export const evaluateSubmission = async (req, res, next) => {
   try {
-    const { studentSqlCode, executionResult: resultData, practiceObjective, checklist, submissionId, practiceId } = req.body;
+    const { studentSqlCode, executionResult: resultData, submissionId, practiceId } = req.body;
     const userId = req.user?.id;
-
-    // Llamamos al servicio de Inteligencia Artificial
-    let evaluationResult = { evaluations: [], feedback: "La IA no pudo evaluar tu entrega en este momento, pero ha sido enviada con éxito para que tu maestro la califique manualmente." };
-    let aiFailed = false;
-    try {
-      evaluationResult = await aiService.evaluateSqlSubmission(
-        studentSqlCode,
-        practiceObjective,
-        checklist
-      );
-    } catch (aiError) {
-      console.error("[AI Evaluation Error] Evaluacion fallida, guardando como pendiente:", aiError);
-      aiFailed = true;
-    }
 
     // Intentar buscar la submission si se proporciona submissionId o practiceId + userId
     let submission = null;
@@ -42,7 +28,7 @@ export const evaluateSubmission = async (req, res, next) => {
     }
 
     if (submission) {
-      // 0. Verificar si la entrega está bloqueada por fecha límite (closeLateSubmissions)
+      // Verificar si la entrega está bloqueada por fecha límite (closeLateSubmissions)
       const practice = submission.practice;
       if (practice && practice.deadline) {
         const isLate = new Date() > new Date(practice.deadline);
@@ -56,7 +42,8 @@ export const evaluateSubmission = async (req, res, next) => {
           });
         }
       }
-      // 1. Actualizar el código SQL, resultado, estado de revisión y fecha de entrega
+      
+      // Actualizar el código SQL, resultado, estado de revisión y fecha de entrega
       await prisma.submission.update({
         where: { id: submission.id },
         data: {
@@ -66,59 +53,13 @@ export const evaluateSubmission = async (req, res, next) => {
           submittedAt: new Date()
         }
       });
-
-      // 2. Guardar los resultados detallados de la lista de cotejo
-      if (evaluationResult.evaluations && Array.isArray(evaluationResult.evaluations)) {
-        for (const ev of evaluationResult.evaluations) {
-          // El checklistItemId de la IA debe coincidir con uno del checklist original para guardarlo
-          const originalItem = checklist.find(c => c.id === ev.checklistItemId);
-          if (originalItem) {
-            await prisma.checklistEvaluation.upsert({
-              where: {
-                submissionId_checklistItemId: {
-                  submissionId: submission.id,
-                  checklistItemId: ev.checklistItemId
-                }
-              },
-              update: {
-                aiComplies: ev.aiComplies
-              },
-              create: {
-                submissionId: submission.id,
-                checklistItemId: ev.checklistItemId,
-                aiComplies: ev.aiComplies
-              }
-            });
-          }
-        }
-      }
     }
 
-    let score = 0;
-    const finalEvaluations = checklist.map(c => {
-      const aiEv = evaluationResult.evaluations.find(ev => ev.checklistItemId === c.id);
-      if (aiEv && aiEv.aiComplies) {
-        score += c.maxPoints;
-      }
-      return {
-        id: c.id,
-        criterion: c.criterion || c.text || "",
-        maxPoints: c.maxPoints,
-        aiComplies: aiEv ? aiEv.aiComplies : null
-      };
-    });
-
+    // Ya no hay autoevaluación con IA, el docente califica manualmente.
     res.status(200).json({
-      status: 'success',
-      data: {
-        score,
-        maxScore: checklist.reduce((sum, c) => sum + c.maxPoints, 0),
-        feedback: evaluationResult.feedback,
-        aiFailed,
-        evaluations: finalEvaluations
-      }
+      message: "Tu práctica fue enviada exitosamente para revisión.",
+      feedback: "El docente asignará tu calificación manualmente."
     });
-
   } catch (error) {
     next(error); // Pasa el error al manejador global
   }
@@ -300,6 +241,12 @@ export const evaluateStep = async (req, res, next) => {
       }
     });
 
+    const newErrorLog = !evaluation.isCorrect ? {
+      query: studentSqlCode,
+      errorMessage: evaluation.feedback || "Error de sintaxis o lógica. El objetivo no fue cumplido.",
+      timestamp: new Date().toISOString()
+    } : null;
+
     if (!stepRecord) {
       // Primer intento
       stepRecord = await prisma.submissionStep.create({
@@ -309,17 +256,29 @@ export const evaluateStep = async (req, res, next) => {
           passedAtFirstTry: evaluation.isCorrect,
           attemptsCount: 1,
           finalSqlCode: evaluation.isCorrect ? studentSqlCode : null,
-          completed: evaluation.isCorrect
+          completed: evaluation.isCorrect,
+          errorLogs: newErrorLog ? [newErrorLog] : []
         }
       });
     } else {
       // Intento subsecuente
+      let currentLogs = [];
+      if (Array.isArray(stepRecord.errorLogs)) {
+        currentLogs = stepRecord.errorLogs;
+      } else if (typeof stepRecord.errorLogs === 'string') {
+        try { currentLogs = JSON.parse(stepRecord.errorLogs); } catch(e) {}
+      }
+      if (newErrorLog) {
+        currentLogs.push(newErrorLog);
+      }
+
       stepRecord = await prisma.submissionStep.update({
         where: { id: stepRecord.id },
         data: {
           attemptsCount: stepRecord.attemptsCount + 1,
           finalSqlCode: evaluation.isCorrect ? studentSqlCode : stepRecord.finalSqlCode,
-          completed: evaluation.isCorrect ? true : stepRecord.completed
+          completed: evaluation.isCorrect ? true : stepRecord.completed,
+          errorLogs: currentLogs
         }
       });
     }

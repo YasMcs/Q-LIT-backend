@@ -6,7 +6,7 @@ export const errorHandler = (err, req, res, next) => {
   let userMessage = err.message || 'Ocurrió un error inesperado en el servidor';
   
   // Interceptar errores de conexión de la base de datos para mostrar un mensaje amigable
-  if (userMessage.includes("Can't reach database server") || userMessage.includes("P1001") || userMessage.includes("prisma")) {
+  if (typeof userMessage === 'string' && (userMessage.includes("Can't reach database server") || userMessage.includes("P1001") || userMessage.includes("prisma"))) {
     userMessage = "Hay una intermitencia de red temporal. Por favor, espera unos segundos y refresca la página o vuelve a intentar tu acción.";
   }
 
