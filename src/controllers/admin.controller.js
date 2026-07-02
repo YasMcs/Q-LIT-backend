@@ -7,11 +7,11 @@ export const getAdminMetrics = async (req, res, next) => {
       return res.status(403).json({ error: { message: "Acceso denegado. Se requiere rol de administrador." } });
     }
 
-    const { classroomId } = req.query;
+    const { teacherId } = req.query;
 
     // Filtros base
-    const practiceFilter = classroomId ? { practice: { classroomId } } : {};
-    const enrollmentFilter = classroomId ? { classroomId } : {};
+    const practiceFilter = teacherId ? { practice: { classroom: { teacherId } } } : {};
+    const enrollmentFilter = teacherId ? { classroom: { teacherId } } : {};
 
     // 1. Obtener todos los logs de error
     const errorLogs = await prisma.practiceErrorLog.findMany({
@@ -120,8 +120,8 @@ export const getAdminMetrics = async (req, res, next) => {
       }
     });
 
-    const firstInteractionAvg = usersWithMultiplePractices > 0 ? (sumErrorsFirstPractice / usersWithMultiplePractices).toFixed(1) : "0.0";
-    const lastInteractionAvg = usersWithMultiplePractices > 0 ? (sumErrorsLastPractice / usersWithMultiplePractices).toFixed(1) : "0.0";
+    const firstInteractionAvg = usersWithMultiplePractices > 0 ? Math.round(sumErrorsFirstPractice / usersWithMultiplePractices) : 0;
+    const lastInteractionAvg = usersWithMultiplePractices > 0 ? Math.round(sumErrorsLastPractice / usersWithMultiplePractices) : 0;
     const evolutionImprovement = usersWithMultiplePractices > 0 && sumErrorsFirstPractice > 0 
       ? (((sumErrorsFirstPractice - sumErrorsLastPractice) / sumErrorsFirstPractice) * 100).toFixed(1) 
       : "0.0";
@@ -181,6 +181,27 @@ export const getAdminMetrics = async (req, res, next) => {
           resolvedPractices: resolvedPracticesCount
         }
       }
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+export const getAdminTeachers = async (req, res, next) => {
+  try {
+    if (req.user?.role !== 'admin') {
+      return res.status(403).json({ error: { message: "Acceso denegado. Se requiere rol de administrador." } });
+    }
+
+    const teachers = await prisma.user.findMany({
+      where: { role: 'teacher' },
+      select: { id: true, name: true, email: true },
+      orderBy: { name: 'asc' }
+    });
+
+    res.status(200).json({
+      status: 'success',
+      data: teachers
     });
   } catch (error) {
     next(error);
