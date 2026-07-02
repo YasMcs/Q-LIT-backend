@@ -486,6 +486,7 @@ export const getTeacherStatistics = async (req, res, next) => {
     // 2. Calcular estadísticas globales
     let totalScoreSum = 0;
     let totalSubmissionsEvaluated = 0;
+    let globalStatsApprovedCount = 0;
     
     let totalExpectedSubmissions = 0;
     let totalActualSubmissions = 0; // pendiente o calificada
@@ -548,6 +549,14 @@ export const getTeacherStatistics = async (req, res, next) => {
             
             classScoreSum += percentageScore;
             classSubmissionsCount++;
+
+            // Contabilizar entregas aprobadas (calificación >= 60%)
+            if (percentageScore >= 60) {
+              if (!globalStatsApprovedCount) {
+                globalStatsApprovedCount = 0;
+              }
+              globalStatsApprovedCount++;
+            }
             
             // Registrar para promedio de alumnos
             if (!studentsScores[sub.userId]) {
@@ -615,9 +624,14 @@ export const getTeacherStatistics = async (req, res, next) => {
 
     const studentsAtRisk = studentsRiskIds.size;
 
-    // --- NUEVO: Temas Críticos e Índice de Mejora usando PracticeErrorLog ---
+    // Calcular Tasa de Aprobación (calificación >= 60)
+    // Usamos una variable global inicializada antes del bucle
+    const approvalRate = totalSubmissionsEvaluated > 0
+      ? Math.round(((globalStatsApprovedCount || 0) / totalSubmissionsEvaluated) * 100)
+      : 100;
+
+    // --- Temas Críticos usando PracticeErrorLog ---
     let struggles = [];
-    let improvementIndex = 100;
 
     const errorLogs = await prisma.practiceErrorLog.findMany({
       where: {
@@ -629,45 +643,39 @@ export const getTeacherStatistics = async (req, res, next) => {
       // Calcular Temas Críticos (struggles)
       const conceptCounts = {};
       errorLogs.forEach(log => {
-        const concept = log.sqlConcept || "Sintaxis General";
+        let concept = log.sqlConcept || "Sintaxis General";
+        // Homogeneizar conceptos redundantes
+        if (concept === "General" || concept === "Sintaxis" || concept === "Sintaxis General") {
+          concept = "Sintaxis General";
+        }
         if (!conceptCounts[concept]) conceptCounts[concept] = 0;
         conceptCounts[concept]++;
       });
 
       const totalErrors = errorLogs.length;
       struggles = Object.entries(conceptCounts)
-        .map(([concept, count]) => ({
-          topic: concept,
-          failRate: Math.round((count / totalErrors) * 100),
-          level: (count / totalErrors) >= 0.4 ? 'high' : (count / totalErrors) >= 0.2 ? 'medium' : 'low'
-        }))
+        .map(([concept, count]) => {
+          // Mapear a etiquetas visuales hermosas y claras
+          const friendlyLabels = {
+            "Sintaxis General": "Sintaxis General",
+            "WHERE": "Filtros (WHERE)",
+            "JOIN": "Combinaciones (JOIN)",
+            "INNER JOIN": "Combinaciones (JOIN)",
+            "LEFT JOIN": "Combinaciones (JOIN)",
+            "GROUP BY": "Agrupaciones (GROUP BY)",
+            "ORDER BY": "Ordenamiento (ORDER BY)",
+            "SELECT": "Consultas Básicas (SELECT)",
+            "LIMIT": "Límites (LIMIT)",
+            "LIKE": "Búsquedas (LIKE)"
+          };
+          return {
+            topic: friendlyLabels[concept] || concept,
+            failRate: Math.round((count / totalErrors) * 100),
+            level: (count / totalErrors) >= 0.4 ? 'high' : (count / totalErrors) >= 0.2 ? 'medium' : 'low'
+          };
+        })
         .sort((a, b) => b.failRate - a.failRate)
         .slice(0, 4);
-
-      // Calcular Índice de Mejora (Tasa de Reincidencia)
-      // Agrupamos por {userId-practiceId-sqlConcept} para encontrar reincidencias
-      const errorSessions = {};
-      let reincidencias = 0;
-      
-      errorLogs.forEach(log => {
-        const concept = log.sqlConcept || "General";
-        const key = `${log.userId}-${log.practiceId}-${concept}`;
-        if (!errorSessions[key]) {
-          errorSessions[key] = 1;
-        } else {
-          if (errorSessions[key] === 1) {
-            // Solo contamos como "sesión reincidente" la primera vez que se repite
-            reincidencias++;
-          }
-          errorSessions[key]++;
-        }
-      });
-
-      const totalSessions = Object.keys(errorSessions).length;
-      if (totalSessions > 0) {
-        const reincidenceRate = (reincidencias / totalSessions) * 100;
-        improvementIndex = Math.max(0, Math.round(100 - reincidenceRate));
-      }
     }
 
     // Fallbacks si no hay temas registrados aún
@@ -685,7 +693,7 @@ export const getTeacherStatistics = async (req, res, next) => {
         learningPercentage,
         deliveryRate,
         studentsAtRisk,
-        improvementIndex
+        approvalRate
       },
       struggles,
       classStats
