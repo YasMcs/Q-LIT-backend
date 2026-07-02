@@ -1,6 +1,6 @@
 import { getMysqlPool } from '../config/mysql.js';
 
-export const executeMockQuery = async (sqlQuery, activeDb, setupSql) => {
+export const executeMockQuery = async (sqlQuery, activeDb, setupSql, completedQueries = []) => {
   const pool = getMysqlPool();
 
   const upperQuery = sqlQuery.toUpperCase().trim();
@@ -44,6 +44,17 @@ export const executeMockQuery = async (sqlQuery, activeDb, setupSql) => {
 
         // Inyectar el setupSql de la IA
         await connection.query(setupSql);
+      }
+
+      // Inyectar el historial acumulativo de consultas superadas por el alumno
+      if (completedQueries && completedQueries.length > 0) {
+        for (const query of completedQueries) {
+          try {
+            await connection.query(query);
+          } catch (historyErr) {
+            console.error("Error al inyectar consulta histórica (ignorado para continuar con Sandbox):", historyErr.message, query);
+          }
+        }
       }
 
       // 2. DML (Modificaciones permitidas pero protegidas por "rollback")

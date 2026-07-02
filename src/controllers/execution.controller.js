@@ -35,18 +35,30 @@ export const executePracticeQuery = async (req, res, next) => {
       return res.status(403).json({ error: { message: "No puedes ejecutar consultas de una práctica de un laboratorio del cual te has salido." } });
     }
 
-    // Buscar submission del alumno para obtener el setupSql
+    // Buscar submission del alumno para obtener el setupSql y el historial acumulativo
     const submission = await prisma.submission.findUnique({
       where: {
         userId_practiceId: {
           userId,
           practiceId
         }
+      },
+      include: {
+        steps: {
+          where: { completed: true },
+          orderBy: { stepIndex: 'asc' },
+          select: { finalSqlCode: true }
+        }
       }
     });
 
-    // Call the sandbox simulator
-    const result = await executeMockQuery(sqlQuery, activeDb || "punto_venta_db", submission?.setupSql);
+    // Extraer el array de sentencias SQL previamente superadas por el alumno
+    const completedQueries = submission?.steps
+      ? submission.steps.map(step => step.finalSqlCode).filter(sql => sql && sql.trim() !== '')
+      : [];
+
+    // Call the sandbox simulator (inyectando setupSql y las sentencias previas)
+    const result = await executeMockQuery(sqlQuery, activeDb || "punto_venta_db", submission?.setupSql, completedQueries);
 
     return res.status(200).json({
       status: "success",
