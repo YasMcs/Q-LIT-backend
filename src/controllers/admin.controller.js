@@ -7,22 +7,27 @@ export const getAdminMetrics = async (req, res, next) => {
       return res.status(403).json({ error: { message: "Acceso denegado. Se requiere rol de administrador." } });
     }
 
+    const { classroomId } = req.query;
+
+    // Filtros base
+    const practiceFilter = classroomId ? { practice: { classroomId } } : {};
+    const enrollmentFilter = classroomId ? { classroomId } : {};
+
     // 1. Obtener todos los logs de error
     const errorLogs = await prisma.practiceErrorLog.findMany({
+      where: practiceFilter,
       include: { user: true }
     });
 
-    // 2. Obtener todas las submissions calificadas para "Casos de éxito"
-    // Un caso de éxito lo consideraremos una submission con reviewStatus = 'calificada' y puntaje mayor a 0.
-    // Para simplificar, tomaremos todas las "calificadas" como éxito de finalización de práctica.
+    // 2. Obtener todas las submissions
     const submissions = await prisma.submission.findMany({
-      where: {
-        reviewStatus: 'calificada'
-      }
+      where: practiceFilter
     });
 
     // 3. Obtener todos los enrollments para calcular el tiempo de interacción
-    const enrollments = await prisma.enrollment.findMany();
+    const enrollments = await prisma.enrollment.findMany({
+      where: enrollmentFilter
+    });
 
     // --- CÁLCULOS POR USUARIO (Engagement) ---
     const userStats = {};
@@ -89,17 +94,54 @@ export const getAdminMetrics = async (req, res, next) => {
     const constantMetrics = calculateReincidence(constantLogs);
     const occasionalMetrics = calculateReincidence(occasionalLogs);
 
-    // --- TOP ERRORES ---
-    const errorCategoriesCount = {};
+    // --- EVOLUCIÓN: Errores en Primera vs Última Práctica ---
+    const userPractices = {}; 
     errorLogs.forEach(log => {
-      const cat = log.errorCategory || 'General';
-      if (!errorCategoriesCount[cat]) errorCategoriesCount[cat] = 0;
-      errorCategoriesCount[cat]++;
+      if (!userPractices[log.userId]) userPractices[log.userId] = {};
+      if (!userPractices[log.userId][log.practiceId]) {
+        userPractices[log.userId][log.practiceId] = { count: 0, firstErrorDate: log.createdAt };
+      }
+      userPractices[log.userId][log.practiceId].count++;
+      if (log.createdAt < userPractices[log.userId][log.practiceId].firstErrorDate) {
+         userPractices[log.userId][log.practiceId].firstErrorDate = log.createdAt;
+      }
     });
 
-    const errorCategories = Object.entries(errorCategoriesCount)
-      .map(([category, count]) => ({ category, count }))
-      .sort((a, b) => b.count - a.count);
+    let sumErrorsFirstPractice = 0;
+    let sumErrorsLastPractice = 0;
+    let usersWithMultiplePractices = 0;
+
+    Object.values(userPractices).forEach(practicesObj => {
+      const practicesArray = Object.values(practicesObj).sort((a, b) => a.firstErrorDate - b.firstErrorDate);
+      if (practicesArray.length > 1) {
+        sumErrorsFirstPractice += practicesArray[0].count;
+        sumErrorsLastPractice += practicesArray[practicesArray.length - 1].count;
+        usersWithMultiplePractices++;
+      }
+    });
+
+    const firstInteractionAvg = usersWithMultiplePractices > 0 ? (sumErrorsFirstPractice / usersWithMultiplePractices).toFixed(1) : "0.0";
+    const lastInteractionAvg = usersWithMultiplePractices > 0 ? (sumErrorsLastPractice / usersWithMultiplePractices).toFixed(1) : "0.0";
+    const evolutionImprovement = usersWithMultiplePractices > 0 && sumErrorsFirstPractice > 0 
+      ? (((sumErrorsFirstPractice - sumErrorsLastPractice) / sumErrorsFirstPractice) * 100).toFixed(1) 
+      : "0.0";
+
+    // --- RESOLUCIÓN AUTÓNOMA ---
+    const practicesWithErrorsSet = new Set();
+    errorLogs.forEach(log => {
+      practicesWithErrorsSet.add(`${log.userId}-${log.practiceId}`);
+    });
+
+    let resolvedPracticesCount = 0;
+    submissions.forEach(sub => {
+      if (sub.reviewStatus === 'calificada' && practicesWithErrorsSet.has(`${sub.userId}-${sub.practiceId}`)) {
+        resolvedPracticesCount++;
+      }
+    });
+
+    const autonomyRate = practicesWithErrorsSet.size > 0 
+      ? ((resolvedPracticesCount / practicesWithErrorsSet.size) * 100).toFixed(2) 
+      : "0.00";
 
     // Respuesta
     res.status(200).json({
@@ -111,7 +153,7 @@ export const getAdminMetrics = async (req, res, next) => {
         },
         overall: {
           ...overallMetrics,
-          successCases: submissions.length,
+          successCases: submissions.filter(s => s.reviewStatus === 'calificada').length,
           totalUsersEvaluated: Object.keys(userStats).length
         },
         engagement: {
@@ -126,7 +168,18 @@ export const getAdminMetrics = async (req, res, next) => {
             ...occasionalMetrics
           }
         },
-        errorCategories
+        evolution: {
+          description: "Comparativa de errores entre la primera y la última práctica por alumno",
+          firstInteractionAvgErrors: firstInteractionAvg,
+          lastInteractionAvgErrors: lastInteractionAvg,
+          improvementPercentage: evolutionImprovement + "%"
+        },
+        autonomy: {
+          description: "Tasa de alumnos que cometieron un error pero lograron resolver la práctica con éxito",
+          autonomyRate: autonomyRate + "%",
+          totalPracticesWithErrors: practicesWithErrorsSet.size,
+          resolvedPractices: resolvedPracticesCount
+        }
       }
     });
   } catch (error) {
