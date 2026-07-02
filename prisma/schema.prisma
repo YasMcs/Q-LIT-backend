@@ -175,6 +175,7 @@ model SubmissionStep {
   passedAtFirstTry  Boolean? // true si lo logró en el primer intento, false si falló el primer intento
   attemptsCount     Int      @default(0)
   finalSqlCode      String?  @db.Text // El código con el que superó el paso
+  errorLogs         Json?    @default("[]") // Historial de errores: [{ query: "...", error: "...", timestamp: "..." }]
   completed         Boolean  @default(false)
   createdAt         DateTime @default(now())
   updatedAt         DateTime @updatedAt

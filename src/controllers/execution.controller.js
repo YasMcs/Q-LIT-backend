@@ -7,6 +7,7 @@ export const executePracticeQuery = async (req, res, next) => {
   const { sqlQuery, activeDb } = req.body;
 
   let userId = null;
+  let submission = null;
   try {
     userId = req.user?.id;
 
@@ -36,7 +37,7 @@ export const executePracticeQuery = async (req, res, next) => {
     }
 
     // Buscar submission del alumno para obtener el setupSql y el historial acumulativo
-    const submission = await prisma.submission.findUnique({
+    submission = await prisma.submission.findUnique({
       where: {
         userId_practiceId: {
           userId,
@@ -69,8 +70,51 @@ export const executePracticeQuery = async (req, res, next) => {
     const translation = await translateSqlError(error, sqlQuery, userId, practiceId);
     
     // Combinamos el mensaje y la sugerencia en una sola cadena con saltos de línea
-    // para que funcione de forma inmediata con el código actual del frontend.
     const combinedMessage = `${translation.mensaje}\n\nSugerencia: ${translation.sugerencia}`;
+
+    // Registrar el intento fallido (reincidencia) en SubmissionStep si tenemos la submission
+    if (submission && typeof submission.currentStep === 'number') {
+      try {
+        const stepRecord = await prisma.submissionStep.findUnique({
+          where: {
+            submissionId_stepIndex: {
+              submissionId: submission.id,
+              stepIndex: submission.currentStep
+            }
+          }
+        });
+
+        const newLog = {
+          query: sqlQuery,
+          errorMessage: combinedMessage,
+          timestamp: new Date().toISOString()
+        };
+
+        if (stepRecord) {
+          const currentLogs = Array.isArray(stepRecord.errorLogs) ? stepRecord.errorLogs : [];
+          await prisma.submissionStep.update({
+            where: { id: stepRecord.id },
+            data: {
+              attemptsCount: { increment: 1 },
+              errorLogs: [...currentLogs, newLog]
+            }
+          });
+        } else {
+          await prisma.submissionStep.create({
+            data: {
+              submissionId: submission.id,
+              stepIndex: submission.currentStep,
+              passedAtFirstTry: false,
+              attemptsCount: 1,
+              completed: false,
+              errorLogs: [newLog]
+            }
+          });
+        }
+      } catch (errStep) {
+        console.error("Error registrando intento fallido en SubmissionStep:", errStep);
+      }
+    }
 
     return res.status(400).json({
       status: "error",

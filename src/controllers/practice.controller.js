@@ -60,12 +60,7 @@ export const createPractice = async (req, res, next) => {
         totalPoints: maxScore,
         deadline,
         closeLateSubmissions: Boolean(closeLateSubmissions),
-        classroomId,
-        checklistItems: {
-          create: criteria.map(c => ({
-            criterion: c.text
-          }))
-        }
+        classroomId
       },
       include: {
         checklistItems: true
@@ -169,16 +164,8 @@ export const updatePractice = async (req, res, next) => {
         requiredFunctions: { db, keywords },
         totalPoints: maxScore !== undefined ? maxScore : existingPractice.totalPoints,
         deadline,
-        closeLateSubmissions: closeLateSubmissions !== undefined ? Boolean(closeLateSubmissions) : existingPractice.closeLateSubmissions,
-        ...(criteria !== undefined ? {
-          checklistItems: {
-            deleteMany: {},
-            create: criteria.map(c => ({
-              criterion: c.text
-            }))
-          }
-        } : {})
-      }
+        closeLateSubmissions: closeLateSubmissions !== undefined ? Boolean(closeLateSubmissions) : existingPractice.closeLateSubmissions
+      },
     });
 
     let deletedSubmissionsCount = 0;

@@ -126,37 +126,25 @@ export const evaluateSubmission = async (req, res, next) => {
 
 export const confirmTeacherGrade = async (req, res, next) => {
   try {
-    const { submissionId, evaluations } = req.body;
+    const { submissionId, manualGrade } = req.body;
 
-    if (!submissionId || !Array.isArray(evaluations)) {
+    if (!submissionId || manualGrade === undefined) {
       return res.status(400).json({
         error: {
           code: 'BAD_REQUEST',
-          message: 'Faltan parámetros requeridos: submissionId, evaluations'
+          message: 'Faltan parámetros requeridos: submissionId, manualGrade'
         }
       });
     }
 
-    // 1. Actualizar estado de la entrega a "calificada"
+    // 1. Actualizar estado de la entrega a "calificada" y asignar nota
     await prisma.submission.update({
       where: { id: submissionId },
-      data: { reviewStatus: "calificada" }
-    });
-
-    // 2. Actualizar las evaluaciones individuales (teacherComplies)
-    for (const ev of evaluations) {
-      if (ev.checklistItemId !== undefined && ev.teacherComplies !== undefined) {
-        await prisma.checklistEvaluation.updateMany({
-          where: {
-            submissionId: submissionId,
-            checklistItemId: ev.checklistItemId
-          },
-          data: {
-            teacherComplies: ev.teacherComplies
-          }
-        });
+      data: { 
+        reviewStatus: "calificada",
+        finalGrade: Number(manualGrade)
       }
-    }
+    });
 
     // 3. Enviar correo al estudiante (en background)
     try {
@@ -172,20 +160,11 @@ export const confirmTeacherGrade = async (req, res, next) => {
       });
       
       if (submission && submission.user?.email && submission.practice) {
-        // Calcular score final usando teacherComplies
-        let totalScore = 0;
-        submission.evaluations.forEach(ev => {
-          if (ev.teacherComplies) {
-            const item = submission.practice.checklistItems.find(i => i.id === ev.checklistItemId);
-            if (item) totalScore += item.maxPoints;
-          }
-        });
-        
         sendGradedEmail(
           submission.user.email,
           submission.user.name,
           submission.practice.title,
-          totalScore,
+          Number(manualGrade),
           submission.practice.totalPoints
         );
       }

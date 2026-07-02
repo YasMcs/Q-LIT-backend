@@ -166,6 +166,7 @@ export const getPracticeSubmissions = async (req, res, next) => {
     const submissions = await prisma.submission.findMany({
       where: { practiceId },
       include: {
+        steps: true,
         evaluations: {
           include: {
             checklistItem: true
@@ -225,6 +226,8 @@ export const getPracticeSubmissions = async (req, res, next) => {
         score,
         submittedAt: sub.submittedAt,
         sqlQuery: sub.studentSqlCode,
+        generatedStatement: sub.generatedStatement,
+        steps: sub.steps,
         executionResult: sub.executionResult ? JSON.parse(sub.executionResult) : null,
         checklist: practice.checklistItems.map(item => {
           const ev = sub.evaluations.find(e => e.checklistItemId === item.id);
@@ -243,6 +246,8 @@ export const getPracticeSubmissions = async (req, res, next) => {
       data: {
         practiceTitle: practice.title,
         practiceDescription: practice.description,
+        totalPoints: practice.totalPoints,
+        practiceRequiredFunctions: practice.requiredFunctions,
         deadline: practice.deadline,
         students: formattedStudents
       }
