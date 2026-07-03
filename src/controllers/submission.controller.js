@@ -147,6 +147,7 @@ export const getPracticeSubmissions = async (req, res, next) => {
         classroom: {
           include: {
             enrollments: {
+              where: { role: 'student' },
               include: {
                 user: {
                   select: { id: true, name: true, email: true, image: true }
