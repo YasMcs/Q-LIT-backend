@@ -1,5 +1,14 @@
 import { prisma } from '../config/db.js';
 
+/**
+ * Obtiene la lista de laboratorios (classrooms) en los que un docente participa, 
+ * ya sea como creador principal (teacherId) o como docente de apoyo (co_teacher).
+ * 
+ * @param {import('express').Request} req - Objeto de petición de Express.
+ * @param {import('express').Response} res - Objeto de respuesta de Express.
+ * @param {import('express').NextFunction} next - Función middleware para pasar errores.
+ * @returns {Promise<void>} JSON con los laboratorios formateados y sus contadores.
+ */
 export const getClassroomsByTeacher = async (req, res, next) => {
   try {
     const { teacherId, archived } = req.query;
