@@ -17,13 +17,16 @@ export const getClassroomsByTeacher = async (req, res, next) => {
 
     const classrooms = await prisma.classroom.findMany({
       where: { 
-        teacherId,
+        OR: [
+          { teacherId },
+          { enrollments: { some: { userId: teacherId, role: 'co_teacher' } } }
+        ],
         isArchived: showArchived
       },
       orderBy: { createdAt: 'desc' },
         include: {
           _count: {
-            select: { enrollments: true, practices: true }
+            select: { enrollments: { where: { role: 'student' } }, practices: true }
           },
           practices: {
             include: {
@@ -68,6 +71,7 @@ export const getClassroomById = async (req, res, next) => {
       where: { id },
       include: {
         enrollments: {
+          where: { role: 'student' },
           include: {
             user: {
               select: {
@@ -185,11 +189,23 @@ export const joinClassroom = async (req, res, next) => {
       return res.status(400).json({ error: { code: 'CONFLICT', message: 'Ya estás inscrito en este laboratorio' } });
     }
 
+    let enrollmentRole = 'student';
+    if (req.user?.role === 'teacher') {
+      const coTeachersCount = await prisma.enrollment.count({
+        where: { classroomId: classroom.id, role: 'co_teacher' }
+      });
+      if (coTeachersCount >= 2) {
+        return res.status(400).json({ error: { code: 'BAD_REQUEST', message: 'Límite de profesores de apoyo alcanzado (Máximo 2)' } });
+      }
+      enrollmentRole = 'co_teacher';
+    }
+
     // Crear la inscripción
     await prisma.enrollment.create({
       data: {
         userId,
-        classroomId: classroom.id
+        classroomId: classroom.id,
+        role: enrollmentRole
       }
     });
 
@@ -456,12 +472,16 @@ export const getTeacherStatistics = async (req, res, next) => {
     // 1. Obtener todas las clases del docente (activas)
     const classrooms = await prisma.classroom.findMany({
       where: {
-        teacherId,
+        OR: [
+          { teacherId },
+          { enrollments: { some: { userId: teacherId, role: 'co_teacher' } } }
+        ],
         isArchived: false,
         ...(classroomId && classroomId !== 'all' ? { id: classroomId } : {})
       },
       include: {
         enrollments: {
+          where: { role: 'student' },
           include: {
             user: true
           }
@@ -720,12 +740,16 @@ export const getTeacherStudents = async (req, res, next) => {
     // 1. Obtener todas las clases del docente (activas)
     const classrooms = await prisma.classroom.findMany({
       where: {
-        teacherId,
+        OR: [
+          { teacherId },
+          { enrollments: { some: { userId: teacherId, role: 'co_teacher' } } }
+        ],
         isArchived: false,
         ...(classroomId && classroomId !== 'all' ? { id: classroomId } : {})
       },
       include: {
         enrollments: {
+          where: { role: 'student' },
           include: {
             user: true
           }

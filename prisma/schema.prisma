@@ -86,6 +86,7 @@ model Enrollment {
   id          String   @id @default(cuid())
   joinedAt    DateTime @default(now())
   isArchived  Boolean  @default(false)
+  role        String   @default("student") // 'student' o 'co_teacher'
 
   userId      String
   user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
