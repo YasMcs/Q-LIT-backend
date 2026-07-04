@@ -12,7 +12,11 @@ const getFallbackTranslation = (error, sqlQuery) => {
   let conceptoSQL = "General";
 
   if (code === 'ER_PARSE_ERROR' || message.toLowerCase().includes('syntax')) {
-    mensaje = "Tienes un error de sintaxis en tu consulta SQL.";
+    const nearMatch = message.match(/near '([^']+)'/i);
+    const nearToken = nearMatch ? nearMatch[1] : '';
+    mensaje = nearToken 
+      ? `Tienes un error de sintaxis en tu consulta SQL cerca de '${nearToken}'.`
+      : "Tienes un error de sintaxis en tu consulta SQL.";
     sugerencia = "Revisa que las palabras clave (SELECT, FROM, JOIN, ON, WHERE) estén bien escritas y en el orden correcto.";
     conceptoSQL = "Sintaxis";
     

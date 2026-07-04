@@ -2,6 +2,7 @@ import * as aiService from '../services/ai.service.js';
 import { prisma } from '../config/db.js';
 import { sendGradedEmail } from '../services/email.service.js';
 import { executeMockQuery } from '../services/sandbox.service.js';
+import { translateSqlError } from '../services/errorTranslator.service.js';
 
 export const evaluateSubmission = async (req, res, next) => {
   try {
@@ -212,22 +213,79 @@ export const evaluateStep = async (req, res, next) => {
 
     // 2. Ejecutar la consulta en la base de datos simulada
     let executionResultData = null;
+    let sqlErrorToTranslate = null;
     try {
       executionResultData = await executeMockQuery(studentSqlCode, activeDb || "punto_venta_db", submission.setupSql);
     } catch (sqlError) {
-      // Si hay error SQL, se considera como intento fallido y se devuelve el error SQL (o se evalúa igualmente)
-      // Vamos a permitir que el frontend lo maneje
+      sqlErrorToTranslate = sqlError;
     }
 
     // 3. Evaluar con IA (Optimizada para ahorrar tokens si la consulta es correcta)
     let evaluation = { isCorrect: false, feedback: "Error interno al evaluar." };
     if (!executionResultData) {
-      evaluation = { isCorrect: false, feedback: "Tu consulta tiene errores de sintaxis y no devolvió resultados." };
+      let feedback = "Tu consulta tiene errores de sintaxis y no devolvió resultados.";
+      if (sqlErrorToTranslate) {
+        try {
+          const translation = await translateSqlError(sqlErrorToTranslate, studentSqlCode, userId, submission.practiceId);
+          feedback = `${translation.mensaje}\n\nSugerencia: ${translation.sugerencia}`;
+        } catch (transErr) {
+          console.error("Error al traducir error SQL en evaluateStep:", transErr);
+        }
+      }
+      evaluation = { isCorrect: false, feedback };
     } else {
       try {
         evaluation = await aiService.evaluateStep(studentSqlCode, currentStepObj.instruction);
       } catch (aiError) {
         console.error("AI Error en evaluateStep:", aiError);
+        
+        const expectedConcept = currentStepObj.expectedConcept || "";
+        let localFeedback = "Lumi (IA) no está respondiendo en este momento (el servicio de Google está temporalmente fuera de línea). ";
+        
+        if (expectedConcept) {
+          const normalizedConcept = expectedConcept.trim().toUpperCase();
+          
+          let hasKeyword = false;
+          try {
+            const regexStr = '\\b' + normalizedConcept.replace(/\s+/g, '\\s+') + '\\b';
+            const regex = new RegExp(regexStr, 'i');
+            hasKeyword = regex.test(studentSqlCode);
+          } catch (regErr) {
+            hasKeyword = studentSqlCode.toUpperCase().includes(normalizedConcept);
+          }
+          
+          if (!hasKeyword) {
+            const conceptExplanations = {
+              "SELECT": "SELECT se utiliza para indicar qué campos o columnas quieres obtener de la tabla.",
+              "FROM": "FROM indica de qué tabla o tablas provienen los datos.",
+              "WHERE": "WHERE se usa para filtrar los registros aplicando condiciones antes de agrupar o mostrar.",
+              "GROUP BY": "GROUP BY se usa para agrupar filas que comparten el mismo valor en ciertas columnas, ideal para usar con COUNT(), SUM(), AVG(), etc.",
+              "HAVING": "HAVING se usa para filtrar los resultados de grupos creados por GROUP BY (por ejemplo, filtrar donde COUNT(*) > 5).",
+              "ORDER BY": "ORDER BY sirve para ordenar las filas resultantes de forma ascendente (ASC) o descendente (DESC).",
+              "JOIN": "JOIN (o INNER JOIN) te permite combinar datos de dos o más tablas basándose en una columna relacionada (llave foránea).",
+              "LEFT JOIN": "LEFT JOIN devuelve todas las filas de la tabla izquierda y las filas coincidentes de la tabla derecha.",
+              "RIGHT JOIN": "RIGHT JOIN devuelve todas las filas de la tabla derecha y las filas coincidentes de la tabla izquierda.",
+              "LIMIT": "LIMIT restringe la cantidad de registros devueltos a un número específico.",
+              "SUM": "SUM() es una función para sumar los valores de una columna numérica.",
+              "AVG": "AVG() calcula el promedio de los valores de una columna numérica.",
+              "COUNT": "COUNT() sirve para contar el número total de filas o elementos.",
+              "MAX": "MAX() devuelve el valor máximo encontrado en una columna.",
+              "MIN": "MIN() devuelve el valor mínimo encontrado en una columna."
+            };
+            
+            const explanation = conceptExplanations[normalizedConcept] || `Esta cláusula o función es fundamental para resolver el paso actual.`;
+            localFeedback += `Detectamos localmente que tu consulta no incluye el concepto esperado: '${expectedConcept}'.\n\nSugerencia: ${explanation}`;
+          } else {
+            localFeedback += `Tu consulta incluye el concepto esperado '${expectedConcept}', pero Lumi no pudo validar si toda la estructura lógica es correcta debido a la indisponibilidad de la IA. Intenta ejecutar de nuevo en unos momentos.`;
+          }
+        } else {
+          localFeedback += "No pudimos evaluar tu lógica de forma automatizada por ahora. Por favor, intenta de nuevo en unos segundos.";
+        }
+
+        evaluation = {
+          isCorrect: false,
+          feedback: localFeedback
+        };
       }
     }
 
