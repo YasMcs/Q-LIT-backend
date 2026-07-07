@@ -270,7 +270,12 @@ export const evaluateStep = async (req, res, next) => {
               "AVG": "AVG() calcula el promedio de los valores de una columna numérica.",
               "COUNT": "COUNT() sirve para contar el número total de filas o elementos.",
               "MAX": "MAX() devuelve el valor máximo encontrado en una columna.",
-              "MIN": "MIN() devuelve el valor mínimo encontrado en una columna."
+              "MIN": "MIN() devuelve el valor mínimo encontrado en una columna.",
+              "SET": "SET se utiliza junto con UPDATE para indicar qué columnas modificar y qué nuevos valores asignarles.",
+              "VALUES": "VALUES se utiliza en la sentencia INSERT para listar los valores correspondientes a las columnas que se van a insertar.",
+              "INTO": "INTO se utiliza en INSERT INTO para especificar la tabla en la cual se guardarán los nuevos registros.",
+              "ON": "ON especifica la condición de emparejamiento (comúnmente la relación llave primaria y llave foránea) entre las tablas en un JOIN.",
+              "AS": "AS se utiliza para renombrar temporalmente columnas o tablas en la consulta (crear un alias) para mayor claridad o brevedad."
             };
             
             const explanation = conceptExplanations[normalizedConcept] || `Esta cláusula o función es fundamental para resolver el paso actual.`;
