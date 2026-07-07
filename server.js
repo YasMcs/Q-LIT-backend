@@ -49,8 +49,9 @@ app.use(express.json({ limit: '2mb' }));
 // Limitador de peticiones general
 const generalLimiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutos
-  max: 3000, // Elevado a 3000 para soportar múltiples alumnos bajo una misma IP (ej. red de la escuela)
-  message: { error: { message: 'Demasiadas peticiones desde esta IP, por favor intenta de nuevo más tarde.' } },
+  max: 1000, // Límite por alumno
+  keyGenerator: (req) => req.headers['x-user-id'] || req.ip,
+  message: { error: { message: 'Demasiadas peticiones, por favor intenta de nuevo más tarde.' } },
   standardHeaders: true,
   legacyHeaders: false,
 });
@@ -59,7 +60,8 @@ app.use(generalLimiter);
 // Limitador de peticiones para evaluaciones (Gemini)
 const evaluationLimiter = rateLimit({
   windowMs: 60 * 60 * 1000, // 1 hora
-  max: 800, // Elevado a 800 peticiones por hora por IP para que un laboratorio entero no se bloquee
+  max: 150, // Límite por alumno
+  keyGenerator: (req) => req.headers['x-user-id'] || req.ip,
   message: { error: { message: 'Has excedido el límite de evaluaciones permitidas por hora.' } },
   standardHeaders: true,
   legacyHeaders: false,
