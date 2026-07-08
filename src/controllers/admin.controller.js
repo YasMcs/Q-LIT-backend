@@ -13,21 +13,42 @@ export const getAdminMetrics = async (req, res, next) => {
     const practiceFilter = teacherId ? { practice: { classroom: { teacherId } } } : {};
     const enrollmentFilter = teacherId ? { classroom: { teacherId } } : {};
 
-    // 1. Obtener todos los logs de error
-    const errorLogs = await prisma.practiceErrorLog.findMany({
+    // Obtener IDs de usuarios a excluir (docentes, administradores y profesores de apoyo)
+    const teachersAndAdmins = await prisma.user.findMany({
+      where: {
+        OR: [
+          { role: 'teacher' },
+          { role: 'admin' }
+        ]
+      },
+      select: { id: true }
+    });
+    const excludedUserIds = new Set(teachersAndAdmins.map(u => u.id));
+
+    const coTeachers = await prisma.enrollment.findMany({
+      where: { role: 'co_teacher' },
+      select: { userId: true }
+    });
+    coTeachers.forEach(ct => excludedUserIds.add(ct.userId));
+
+    // 1. Obtener todos los logs de error (excluyendo docentes/apoyo)
+    const rawErrorLogs = await prisma.practiceErrorLog.findMany({
       where: practiceFilter,
       include: { user: true }
     });
+    const errorLogs = rawErrorLogs.filter(log => !excludedUserIds.has(log.userId));
 
-    // 2. Obtener todas las submissions
-    const submissions = await prisma.submission.findMany({
+    // 2. Obtener todas las submissions (excluyendo docentes/apoyo)
+    const rawSubmissions = await prisma.submission.findMany({
       where: practiceFilter
     });
+    const submissions = rawSubmissions.filter(sub => !excludedUserIds.has(sub.userId));
 
-    // 3. Obtener todos los enrollments para calcular el tiempo de interacción
-    const enrollments = await prisma.enrollment.findMany({
+    // 3. Obtener todos los enrollments (excluyendo docentes/apoyo)
+    const rawEnrollments = await prisma.enrollment.findMany({
       where: enrollmentFilter
     });
+    const enrollments = rawEnrollments.filter(en => !excludedUserIds.has(en.userId));
 
     // --- CÁLCULOS POR USUARIO (Engagement) ---
     const userStats = {};
@@ -207,3 +228,239 @@ export const getAdminTeachers = async (req, res, next) => {
     next(error);
   }
 };
+
+export const getAdminUsersDirectory = async (req, res, next) => {
+  try {
+    if (req.user?.role !== 'admin') {
+      return res.status(403).json({ error: { message: "Acceso denegado. Se requiere rol de administrador." } });
+    }
+
+    // 1. Obtener todos los docentes (usuarios con rol 'teacher', que hayan creado aulas o que participen como profesores de apoyo)
+    const teachers = await prisma.user.findMany({
+      where: {
+        OR: [
+          { role: 'teacher' },
+          { classroomsCreated: { some: {} } },
+          { enrollments: { some: { role: 'co_teacher' } } }
+        ]
+      },
+      select: {
+        id: true,
+        name: true,
+        email: true,
+        role: true,
+        classroomsCreated: {
+          select: {
+            id: true,
+            name: true,
+            group: true,
+            _count: {
+              select: { enrollments: true }
+            }
+          }
+        },
+        enrollments: {
+          where: { role: 'co_teacher' },
+          select: {
+            classroom: {
+              select: {
+                id: true,
+                name: true,
+                group: true,
+                teacher: {
+                  select: {
+                    name: true,
+                    email: true
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      orderBy: { name: 'asc' }
+    });
+
+    // 2. Obtener todas las aulas/grupos con sus estudiantes inscritos
+    const classrooms = await prisma.classroom.findMany({
+      select: {
+        id: true,
+        name: true,
+        group: true,
+        inviteCode: true,
+        isArchived: true,
+        teacher: {
+          select: {
+            name: true,
+            email: true
+          }
+        },
+        enrollments: {
+          select: {
+            id: true,
+            joinedAt: true,
+            role: true,
+            user: {
+              select: {
+                id: true,
+                name: true,
+                email: true,
+                role: true
+              }
+            }
+          }
+        }
+      },
+      orderBy: { name: 'asc' }
+    });
+
+    // 3. Obtener alumnos que no están en ningún grupo (registrados pero sin enrollments)
+    const unassignedStudents = await prisma.user.findMany({
+      where: {
+        role: 'student',
+        enrollments: { none: {} }
+      },
+      select: {
+        id: true,
+        name: true,
+        email: true,
+        role: true
+      },
+      orderBy: { name: 'asc' }
+    });
+
+    res.status(200).json({
+      status: 'success',
+      data: {
+        teachers,
+        classrooms,
+        unassignedStudents
+      }
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+export const updateUserRole = async (req, res, next) => {
+  try {
+    if (req.user?.role !== 'admin') {
+      return res.status(403).json({ error: { message: "Acceso denegado. Se requiere rol de administrador." } });
+    }
+
+    const { userId } = req.params;
+    const { role } = req.body;
+
+    if (!['student', 'teacher', 'admin'].includes(role)) {
+      return res.status(400).json({ error: { message: "Rol inválido. Debe ser 'student', 'teacher' o 'admin'." } });
+    }
+
+    const updatedUser = await prisma.user.update({
+      where: { id: userId },
+      data: { role },
+      select: { id: true, name: true, email: true, role: true }
+    });
+
+    res.status(200).json({
+      status: 'success',
+      data: updatedUser
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+export const enrollUserInClassroom = async (req, res, next) => {
+  try {
+    if (req.user?.role !== 'admin') {
+      return res.status(403).json({ error: { message: "Acceso denegado. Se requiere rol de administrador." } });
+    }
+
+    const { email, userId, classroomId, role } = req.body;
+
+    let targetUserId = userId;
+
+    if (!targetUserId && email) {
+      const user = await prisma.user.findUnique({
+        where: { email: email.trim().toLowerCase() }
+      });
+      if (!user) {
+        return res.status(404).json({ error: { message: `No se encontró ningún usuario con el correo: ${email}` } });
+      }
+      targetUserId = user.id;
+    }
+
+    if (!targetUserId || !classroomId) {
+      return res.status(400).json({ error: { message: "Se requiere userId/email y classroomId." } });
+    }
+
+    const existingEnrollment = await prisma.enrollment.findUnique({
+      where: {
+        userId_classroomId: {
+          userId: targetUserId,
+          classroomId
+        }
+      }
+    });
+
+    if (existingEnrollment) {
+      return res.status(400).json({ error: { message: "El usuario ya está inscrito en este laboratorio." } });
+    }
+
+    const user = await prisma.user.findUnique({
+      where: { id: targetUserId }
+    });
+
+    let enrollmentRole = role;
+    if (!enrollmentRole) {
+      enrollmentRole = user.role === 'teacher' ? 'co_teacher' : 'student';
+    }
+
+    const enrollment = await prisma.enrollment.create({
+      data: {
+        userId: targetUserId,
+        classroomId,
+        role: enrollmentRole
+      },
+      include: {
+        user: {
+          select: {
+            id: true,
+            name: true,
+            email: true,
+            role: true
+          }
+        }
+      }
+    });
+
+    res.status(201).json({
+      status: 'success',
+      data: enrollment
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+export const removeUserFromClassroom = async (req, res, next) => {
+  try {
+    if (req.user?.role !== 'admin') {
+      return res.status(403).json({ error: { message: "Acceso denegado. Se requiere rol de administrador." } });
+    }
+
+    const { enrollmentId } = req.params;
+
+    await prisma.enrollment.delete({
+      where: { id: enrollmentId }
+    });
+
+    res.status(200).json({
+      status: 'success',
+      message: "Usuario desvinculado correctamente del laboratorio."
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
