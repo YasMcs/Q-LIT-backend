@@ -215,6 +215,8 @@ export const getPracticeSubmissions = async (req, res, next) => {
         status = "COMPLETED";
       } else if (sub.reviewStatus === "pendiente") {
         status = "PENDING";
+      } else if (sub.reviewStatus === "en_progreso" && (!sub.steps || sub.steps.length === 0) && (!sub.studentSqlCode || sub.studentSqlCode.trim() === "")) {
+        status = "NOT_STARTED";
       }
 
       return {
