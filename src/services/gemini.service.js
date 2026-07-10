@@ -65,6 +65,6 @@ Instrucciones para ti:
     // Lanzamos el error para que el controlador (submission) falle 
     // y no guarde un texto de error roto en la base de datos.
     // Así, el alumno puede refrescar la página y volver a intentar.
-    throw new Error("No se pudo generar el enunciado. La API de IA está temporalmente no disponible.");
+    throw new Error("Lumi (IA) no está disponible en este momento para crear tu enunciado. Por favor, espera unos segundos e intenta ingresar nuevamente.");
   }
 };
