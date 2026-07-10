@@ -5,6 +5,7 @@ dotenv.config();
 // Configurar el transportador de Nodemailer usando las variables de entorno
 const transporter = nodemailer.createTransport({
   service: 'gmail', // Configuración rápida para Gmail
+  family: 4,        // Forzar IPv4 para evitar errores de red ENETUNREACH en IPv6
   auth: {
     user: process.env.EMAIL_USER, // Tu correo de Gmail (ej. qlit.oficial@gmail.com)
     pass: process.env.EMAIL_PASS  // Tu "Contraseña de aplicación" de 16 letras
