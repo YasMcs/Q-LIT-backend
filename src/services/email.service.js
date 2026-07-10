@@ -1,26 +1,12 @@
-import nodemailer from 'nodemailer';
-import dns from 'dns';
+import { Resend } from 'resend';
 import dotenv from 'dotenv';
 dotenv.config();
 
-// Forzar a Node.js a resolver direcciones IPv4 antes que IPv6 de forma global
-if (dns && typeof dns.setDefaultResultOrder === 'function') {
-  dns.setDefaultResultOrder('ipv4first');
-}
+// Cliente de Resend usando la API key del .env
+const resend = new Resend(process.env.RESEND_API_KEY);
 
-// Configurar el transportador de Nodemailer usando las variables de entorno
-const transporter = nodemailer.createTransport({
-  host: 'smtp.gmail.com',
-  port: 465,
-  secure: true,
-  family: 4,        // Forzar IPv4 para evitar errores de red ENETUNREACH en IPv6
-  auth: {
-    user: process.env.EMAIL_USER, // Tu correo de Gmail (ej. qlit.oficial@gmail.com)
-    pass: process.env.EMAIL_PASS  // Tu "Contraseña de aplicación" de 16 letras
-  }
-});
-
-const SENDER_EMAIL = '"Q-LIT Notificaciones" <' + (process.env.EMAIL_USER || 'noreply@qlit.com') + '>';
+// Dirección remitente con dominio verificado en Resend
+const SENDER_EMAIL = 'Q-LIT Notificaciones <noreply@q-lit.online>';
 
 // Iconos SVG reutilizables para el HTML del correo
 const ICON = {
@@ -81,37 +67,42 @@ const getBaseTemplate = (title, accentColor = '#6366f1', content) => `
 `;
 
 /**
- * Helper interno para enviar correo
+ * Helper interno para enviar correo via Resend
  */
 const sendEmail = async (to, subject, html) => {
-  if (!process.env.EMAIL_USER || !process.env.EMAIL_PASS) {
-    console.warn('[EMAIL] No se han configurado EMAIL_USER y EMAIL_PASS en el .env. Correo simulado (no enviado a la red).');
+  if (!process.env.RESEND_API_KEY) {
+    console.warn('[EMAIL] No se ha configurado RESEND_API_KEY en el .env. Correo simulado (no enviado a la red).');
     console.log(`[SIMULACION DE CORREO] Para: ${to} | Asunto: ${subject}`);
     return;
   }
-  
+
   try {
-    const info = await transporter.sendMail({
+    const { data, error } = await resend.emails.send({
       from: SENDER_EMAIL,
-      to: to,
+      to: [to],
       subject: subject,
       html: html,
-      text: html.replace(/<[^>]*>?/gm, '').trim()
     });
-    console.log(`[EMAIL] Correo enviado a ${to} (ID: ${info.messageId})`);
-    return info;
+
+    if (error) {
+      console.error(`[EMAIL] Error enviando correo a ${to}:`, error);
+      return;
+    }
+
+    console.log(`[EMAIL] Correo enviado a ${to} (ID: ${data.id})`);
+    return data;
   } catch (error) {
     console.error(`[EMAIL] Error enviando correo a ${to}:`, error);
   }
 };
 
 /**
- * Envía notificación de nueva práctica
+ * Envia notificacion de nueva practica
  */
 export const sendNewPracticeEmail = async (studentEmail, studentName, practiceTitle, classroomName, deadline) => {
   const subject = `Nueva Practica Asignada: ${practiceTitle}`;
   const deadlineStr = deadline ? new Date(deadline).toLocaleString('es-ES', { dateStyle: 'long', timeStyle: 'short' }) : 'Sin limite de tiempo';
-  
+
   const content = `
     <h2 class="greeting">${ICON.user} Hola, ${studentName || 'Estudiante'}</h2>
     <p class="body-text">Tu profesor ha publicado un nuevo laboratorio practico en la clase <span class="highlight">${classroomName}</span>.</p>
@@ -121,20 +112,20 @@ export const sendNewPracticeEmail = async (studentEmail, studentName, practiceTi
     </div>
     <p class="body-text">Ingresa a Q-LIT para comenzar a resolverla y poner a prueba tu logica SQL.</p>
     <div style="margin-top: 28px;">
-      <a href="${process.env.FRONTEND_URL || 'http://localhost:3000'}" class="btn">${ICON.run} Entrar al Laboratorio</a>
+      <a href="${process.env.FRONTEND_URL || 'https://q-lit.online'}" class="btn">${ICON.run} Entrar al Laboratorio</a>
     </div>
   `;
-  
+
   return sendEmail(studentEmail, subject, getBaseTemplate('Nueva Practica Asignada', '#6366f1', content));
 };
 
 /**
- * Envía notificación de práctica actualizada
+ * Envia notificacion de practica actualizada
  */
 export const sendPracticeUpdatedEmail = async (studentEmail, studentName, practiceTitle, classroomName, deadline) => {
   const subject = `Practica Actualizada: ${practiceTitle}`;
   const deadlineStr = deadline ? new Date(deadline).toLocaleString('es-ES', { dateStyle: 'long', timeStyle: 'short' }) : 'Sin limite de tiempo';
-  
+
   const content = `
     <h2 class="greeting">${ICON.user} Hola, ${studentName || 'Estudiante'}</h2>
     <p class="body-text">Tu profesor ha <strong>modificado algunos detalles</strong> del laboratorio practico en la clase <span class="highlight">${classroomName}</span>.</p>
@@ -144,19 +135,19 @@ export const sendPracticeUpdatedEmail = async (studentEmail, studentName, practi
     </div>
     <p class="body-text">Te enviamos este recordatorio para que revises los cambios y te asegures de entregar a tiempo.</p>
     <div style="margin-top: 28px;">
-      <a href="${process.env.FRONTEND_URL || 'http://localhost:3000'}" class="btn">${ICON.refresh} Revisar Laboratorio</a>
+      <a href="${process.env.FRONTEND_URL || 'https://q-lit.online'}" class="btn">${ICON.refresh} Revisar Laboratorio</a>
     </div>
   `;
-  
+
   return sendEmail(studentEmail, subject, getBaseTemplate('Laboratorio Actualizado', '#6366f1', content));
 };
 
 /**
- * Envía notificación de práctica calificada
+ * Envia notificacion de practica calificada
  */
 export const sendGradedEmail = async (studentEmail, studentName, practiceTitle, score, maxScore) => {
   const subject = `Practica Calificada: ${practiceTitle}`;
-  
+
   const content = `
     <h2 class="greeting">${ICON.user} Hola, ${studentName || 'Estudiante'}</h2>
     <p class="body-text">Tu profesor ha finalizado la revision de tu practica.</p>
@@ -169,20 +160,20 @@ export const sendGradedEmail = async (studentEmail, studentName, practiceTitle, 
     </div>
     <p class="body-text">Puedes ingresar a Q-LIT para revisar los detalles de tu evaluacion y retroalimentacion.</p>
     <div style="margin-top: 28px;">
-      <a href="${process.env.FRONTEND_URL || 'http://localhost:3000'}" class="btn">${ICON.grad} Ver Calificacion</a>
+      <a href="${process.env.FRONTEND_URL || 'https://q-lit.online'}" class="btn">${ICON.grad} Ver Calificacion</a>
     </div>
   `;
-  
+
   return sendEmail(studentEmail, subject, getBaseTemplate('Practica Calificada', '#6366f1', content));
 };
 
 /**
- * Envía notificación de recordatorio de vencimiento
+ * Envia notificacion de recordatorio de vencimiento
  */
 export const sendReminderEmail = async (studentEmail, studentName, practiceTitle, deadline) => {
   const subject = `Recordatorio: Practica por vencer`;
   const deadlineStr = new Date(deadline).toLocaleString('es-ES', { dateStyle: 'long', timeStyle: 'short' });
-  
+
   const content = `
     <h2 class="greeting">${ICON.user} Hola, ${studentName || 'Estudiante'}</h2>
     <p class="body-text">Este es un recordatorio de que tienes una practica que <strong>vence pronto</strong>.</p>
@@ -192,9 +183,9 @@ export const sendReminderEmail = async (studentEmail, studentName, practiceTitle
     </div>
     <p class="body-text">Aun estas a tiempo de entregarla y evitar penalizaciones.</p>
     <div style="margin-top: 28px;">
-      <a href="${process.env.FRONTEND_URL || 'http://localhost:3000'}" class="btn" style="background-color:#ef4444;">${ICON.run} Entregar Practica</a>
+      <a href="${process.env.FRONTEND_URL || 'https://q-lit.online'}" class="btn" style="background-color:#ef4444;">${ICON.run} Entregar Practica</a>
     </div>
   `;
-  
+
   return sendEmail(studentEmail, subject, getBaseTemplate('Practica por Vencer', '#ef4444', content));
 };
