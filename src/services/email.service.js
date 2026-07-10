@@ -1,10 +1,18 @@
 import nodemailer from 'nodemailer';
+import dns from 'dns';
 import dotenv from 'dotenv';
 dotenv.config();
 
+// Forzar a Node.js a resolver direcciones IPv4 antes que IPv6 de forma global
+if (dns && typeof dns.setDefaultResultOrder === 'function') {
+  dns.setDefaultResultOrder('ipv4first');
+}
+
 // Configurar el transportador de Nodemailer usando las variables de entorno
 const transporter = nodemailer.createTransport({
-  service: 'gmail', // Configuración rápida para Gmail
+  host: 'smtp.gmail.com',
+  port: 465,
+  secure: true,
   family: 4,        // Forzar IPv4 para evitar errores de red ENETUNREACH en IPv6
   auth: {
     user: process.env.EMAIL_USER, // Tu correo de Gmail (ej. qlit.oficial@gmail.com)
