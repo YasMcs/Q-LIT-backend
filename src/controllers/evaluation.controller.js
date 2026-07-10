@@ -222,6 +222,7 @@ export const evaluateStep = async (req, res, next) => {
 
     // 3. Evaluar con IA (Optimizada para ahorrar tokens si la consulta es correcta)
     let evaluation = { isCorrect: false, feedback: "Error interno al evaluar." };
+    let isAiOffline = false;
     if (!executionResultData) {
       let feedback = "Tu consulta tiene errores de sintaxis y no devolvió resultados.";
       if (sqlErrorToTranslate) {
@@ -238,6 +239,7 @@ export const evaluateStep = async (req, res, next) => {
         evaluation = await aiService.evaluateStep(studentSqlCode, currentStepObj.instruction);
       } catch (aiError) {
         console.error("AI Error en evaluateStep:", aiError);
+        isAiOffline = true;
         
         const expectedConcept = currentStepObj.expectedConcept || "";
         let localFeedback = "Lumi (IA) no está respondiendo en este momento (el servicio de Google está temporalmente fuera de línea). ";
@@ -288,62 +290,65 @@ export const evaluateStep = async (req, res, next) => {
         }
 
         evaluation = {
-          isCorrect: false,
+          isCorrect: null,
           feedback: localFeedback
         };
       }
     }
 
-    // 4. Guardar o actualizar el SubmissionStep
-    let stepRecord = await prisma.submissionStep.findUnique({
-      where: {
-        submissionId_stepIndex: {
-          submissionId: submission.id,
-          stepIndex: stepIndex
-        }
-      }
-    });
-
-    const newErrorLog = !evaluation.isCorrect ? {
-      query: studentSqlCode,
-      errorMessage: evaluation.feedback || "Error de sintaxis o lógica. El objetivo no fue cumplido.",
-      timestamp: new Date().toISOString()
-    } : null;
-
-    if (!stepRecord) {
-      // Primer intento
-      stepRecord = await prisma.submissionStep.create({
-        data: {
-          submissionId: submission.id,
-          stepIndex: stepIndex,
-          passedAtFirstTry: evaluation.isCorrect,
-          attemptsCount: 1,
-          finalSqlCode: evaluation.isCorrect ? studentSqlCode : null,
-          completed: evaluation.isCorrect,
-          errorLogs: newErrorLog ? [newErrorLog] : []
+    // 4. Guardar o actualizar el SubmissionStep (Solo si la IA estuvo disponible)
+    let stepRecord = null;
+    if (!isAiOffline) {
+      stepRecord = await prisma.submissionStep.findUnique({
+        where: {
+          submissionId_stepIndex: {
+            submissionId: submission.id,
+            stepIndex: stepIndex
+          }
         }
       });
-    } else {
-      // Intento subsecuente
-      let currentLogs = [];
-      if (Array.isArray(stepRecord.errorLogs)) {
-        currentLogs = stepRecord.errorLogs;
-      } else if (typeof stepRecord.errorLogs === 'string') {
-        try { currentLogs = JSON.parse(stepRecord.errorLogs); } catch(e) {}
-      }
-      if (newErrorLog) {
-        currentLogs.push(newErrorLog);
-      }
 
-      stepRecord = await prisma.submissionStep.update({
-        where: { id: stepRecord.id },
-        data: {
-          attemptsCount: stepRecord.attemptsCount + 1,
-          finalSqlCode: evaluation.isCorrect ? studentSqlCode : stepRecord.finalSqlCode,
-          completed: evaluation.isCorrect ? true : stepRecord.completed,
-          errorLogs: currentLogs
+      const newErrorLog = !evaluation.isCorrect ? {
+        query: studentSqlCode,
+        errorMessage: evaluation.feedback || "Error de sintaxis o lógica. El objetivo no fue cumplido.",
+        timestamp: new Date().toISOString()
+      } : null;
+
+      if (!stepRecord) {
+        // Primer intento
+        stepRecord = await prisma.submissionStep.create({
+          data: {
+            submissionId: submission.id,
+            stepIndex: stepIndex,
+            passedAtFirstTry: evaluation.isCorrect,
+            attemptsCount: 1,
+            finalSqlCode: evaluation.isCorrect ? studentSqlCode : null,
+            completed: evaluation.isCorrect,
+            errorLogs: newErrorLog ? [newErrorLog] : []
+          }
+        });
+      } else {
+        // Intento subsecuente
+        let currentLogs = [];
+        if (Array.isArray(stepRecord.errorLogs)) {
+          currentLogs = stepRecord.errorLogs;
+        } else if (typeof stepRecord.errorLogs === 'string') {
+          try { currentLogs = JSON.parse(stepRecord.errorLogs); } catch(e) {}
         }
-      });
+        if (newErrorLog) {
+          currentLogs.push(newErrorLog);
+        }
+
+        stepRecord = await prisma.submissionStep.update({
+          where: { id: stepRecord.id },
+          data: {
+            attemptsCount: stepRecord.attemptsCount + 1,
+            finalSqlCode: evaluation.isCorrect ? studentSqlCode : stepRecord.finalSqlCode,
+            completed: evaluation.isCorrect ? true : stepRecord.completed,
+            errorLogs: currentLogs
+          }
+        });
+      }
     }
 
     // 5. Si es correcto, actualizar el currentStep global de la submission si era el paso actual
@@ -363,6 +368,7 @@ export const evaluateStep = async (req, res, next) => {
         isCorrect: evaluation.isCorrect,
         feedback: evaluation.feedback,
         executionResult: executionResultData,
+        isAiOffline,
         stepRecord
       }
     });
