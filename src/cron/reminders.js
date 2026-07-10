@@ -39,7 +39,8 @@ export const startRemindersCron = () => {
 
         for (const enrollment of practice.classroom.enrollments) {
           const student = enrollment.user;
-          if (!student.email) continue;
+          // Solo enviar recordatorios a estudiantes, no a maestros de apoyo
+          if (!student.email || enrollment.role !== 'student') continue;
 
           // Verificar si el estudiante ya entregó
           const hasSubmitted = practice.submissions.some(sub => 

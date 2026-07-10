@@ -82,7 +82,7 @@ export const createPractice = async (req, res, next) => {
       });
       if (classroom && classroom.enrollments) {
         classroom.enrollments.forEach(enrollment => {
-          if (enrollment.user.email) {
+          if (enrollment.user.email && enrollment.role === 'student') {
             sendNewPracticeEmail(
               enrollment.user.email,
               enrollment.user.name,
@@ -191,7 +191,7 @@ export const updatePractice = async (req, res, next) => {
       });
       if (classroom && classroom.enrollments) {
         classroom.enrollments.forEach(enrollment => {
-          if (enrollment.user.email) {
+          if (enrollment.user.email && enrollment.role === 'student') {
             sendPracticeUpdatedEmail(
               enrollment.user.email,
               enrollment.user.name,
