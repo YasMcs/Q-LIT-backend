@@ -101,7 +101,7 @@ const sendEmail = async (to, subject, html) => {
  */
 export const sendNewPracticeEmail = async (studentEmail, studentName, practiceTitle, classroomName, deadline) => {
   const subject = `Nueva Practica Asignada: ${practiceTitle}`;
-  const deadlineStr = deadline ? new Date(deadline).toLocaleString('es-ES', { dateStyle: 'long', timeStyle: 'short' }) : 'Sin limite de tiempo';
+  const deadlineStr = deadline ? new Date(deadline).toLocaleString('es-MX', { dateStyle: 'long', timeStyle: 'short', timeZone: 'America/Mexico_City' }) : 'Sin limite de tiempo';
 
   const content = `
     <h2 class="greeting">${ICON.user} Hola, ${studentName || 'Estudiante'}</h2>
@@ -124,7 +124,7 @@ export const sendNewPracticeEmail = async (studentEmail, studentName, practiceTi
  */
 export const sendPracticeUpdatedEmail = async (studentEmail, studentName, practiceTitle, classroomName, deadline) => {
   const subject = `Practica Actualizada: ${practiceTitle}`;
-  const deadlineStr = deadline ? new Date(deadline).toLocaleString('es-ES', { dateStyle: 'long', timeStyle: 'short' }) : 'Sin limite de tiempo';
+  const deadlineStr = deadline ? new Date(deadline).toLocaleString('es-MX', { dateStyle: 'long', timeStyle: 'short', timeZone: 'America/Mexico_City' }) : 'Sin limite de tiempo';
 
   const content = `
     <h2 class="greeting">${ICON.user} Hola, ${studentName || 'Estudiante'}</h2>
@@ -172,7 +172,7 @@ export const sendGradedEmail = async (studentEmail, studentName, practiceTitle, 
  */
 export const sendReminderEmail = async (studentEmail, studentName, practiceTitle, deadline) => {
   const subject = `Recordatorio: Practica por vencer`;
-  const deadlineStr = new Date(deadline).toLocaleString('es-ES', { dateStyle: 'long', timeStyle: 'short' });
+  const deadlineStr = new Date(deadline).toLocaleString('es-MX', { dateStyle: 'long', timeStyle: 'short', timeZone: 'America/Mexico_City' });
 
   const content = `
     <h2 class="greeting">${ICON.user} Hola, ${studentName || 'Estudiante'}</h2>
