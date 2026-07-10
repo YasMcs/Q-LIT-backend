@@ -59,6 +59,9 @@ const getBaseTemplate = (title, accentColor = '#6366f1', content) => `
       ${content}
     </div>
     <div class="footer">
+      <p style="background:#fef9c3;border:1px solid #fde68a;border-radius:8px;padding:10px 14px;margin-bottom:12px;color:#92400e;font-size:12px;">
+        Recomendamos acceder desde una <strong>computadora o laptop</strong>. La plataforma no esta optimizada para dispositivos moviles.
+      </p>
       <p>Este es un mensaje automatico generado por Q-LIT. Por favor, no respondas a este correo.</p>
     </div>
   </div>
