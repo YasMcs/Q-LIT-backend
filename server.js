@@ -51,6 +51,7 @@ const generalLimiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutos
   max: 1000, // Límite por alumno
   keyGenerator: (req) => req.headers['x-user-id'] || req.ip,
+  validate: { ip: false },
   message: { error: { message: 'Demasiadas peticiones, por favor intenta de nuevo más tarde.' } },
   standardHeaders: true,
   legacyHeaders: false,
@@ -62,6 +63,7 @@ const evaluationLimiter = rateLimit({
   windowMs: 60 * 60 * 1000, // 1 hora
   max: 150, // Límite por alumno
   keyGenerator: (req) => req.headers['x-user-id'] || req.ip,
+  validate: { ip: false },
   message: { error: { message: 'Has excedido el límite de evaluaciones permitidas por hora.' } },
   standardHeaders: true,
   legacyHeaders: false,
