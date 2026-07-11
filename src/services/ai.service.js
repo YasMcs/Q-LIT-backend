@@ -108,7 +108,7 @@ INSTRUCCIONES:
   try {
     // 3. Llamamos a Gemini usando reintento y rotación
     const response = await generateContentWithRetry({
-        model: 'gemini-1.5-flash',
+        model: 'gemini-3.5-flash',
         contents: prompt,
         config: {
             responseMimeType: "application/json",
@@ -150,7 +150,7 @@ Determina si la consulta cumple la instrucción (SÉ FLEXIBLE: aprueba lógicas 
 
   try {
     const response1 = await generateContentWithRetry({
-        model: 'gemini-1.5-flash',
+        model: 'gemini-3.5-flash',
         contents: validationPrompt,
         config: {
             responseMimeType: "application/json",
@@ -186,7 +186,7 @@ ${studentSqlCode}
 El código NO cumple el objetivo. Escribe una breve retroalimentación (máx 3 oraciones) guiándolo sin darle la respuesta directa. Sin emojis.`;
 
     const response2 = await generateContentWithRetry({
-        model: 'gemini-1.5-flash',
+        model: 'gemini-3.5-flash',
         contents: feedbackPrompt,
         config: {
             responseMimeType: "application/json",
