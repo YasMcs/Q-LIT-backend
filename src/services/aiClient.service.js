@@ -41,7 +41,9 @@ export const getPrefixForClient = (client) => {
   const index = aiClients.indexOf(client);
   if (index !== -1 && apiKeys[index]) {
     const key = apiKeys[index];
-    return key.substring(0, 6) + '...';
+    const start = key.substring(0, 6);
+    const end = key.length > 4 ? key.substring(key.length - 4) : '';
+    return `#${index + 1} (${start}...${end})`;
   }
   return 'Desconocido';
 };
