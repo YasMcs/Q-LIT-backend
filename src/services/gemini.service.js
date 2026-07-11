@@ -1,3 +1,4 @@
+import { Type } from '@google/genai';
 import { getCatalogs } from './catalog.service.js';
 import { generateContentWithRetry } from './ai.service.js';
 
@@ -46,11 +47,49 @@ Instrucciones para ti:
 }
 `;
 
+    const responseSchema = {
+      type: Type.OBJECT,
+      properties: {
+        historia: {
+          type: Type.STRING,
+          description: "El escenario narrativo de la práctica."
+        },
+        pasos: {
+          type: Type.ARRAY,
+          description: "La lista de pasos/objetivos a resolver.",
+          items: {
+            type: Type.OBJECT,
+            properties: {
+              step: {
+                type: Type.INTEGER,
+                description: "El número secuencial del paso."
+              },
+              instruction: {
+                type: Type.STRING,
+                description: "La instrucción corta y clara para este objetivo."
+              },
+              expectedConcept: {
+                type: Type.STRING,
+                description: "El concepto SQL esperado, por ejemplo SELECT, WHERE, JOIN, etc."
+              }
+            },
+            required: ["step", "instruction", "expectedConcept"]
+          }
+        },
+        setup_sql: {
+          type: Type.STRING,
+          description: "Las sentencias SQL (DML) de tipo INSERT para preparar la base de datos."
+        }
+      },
+      required: ["historia", "pasos", "setup_sql"]
+    };
+
     const response = await generateContentWithRetry({
       model: 'gemini-3.5-flash',
       contents: prompt,
       config: {
-        responseMimeType: "application/json"
+        responseMimeType: "application/json",
+        responseSchema: responseSchema
       }
     });
 

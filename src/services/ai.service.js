@@ -1,9 +1,9 @@
 import { Type } from '@google/genai';
-import { getAiClient, getAiClientsCount } from './aiClient.service.js';
+import { getAiClient, getAiClientsCount, getPrefixForClient } from './aiClient.service.js';
 
 /**
  * Realiza la generación de contenido mediante la API de Gemini.
- * Si falla debido a problemas de cuota o límite (429 / RESOURCE_EXHAUSTED),
+ * Si falla debido a problemas de cuota o límite (429 / RESOURCE_EXHAUSTED) o de permisos (403/401),
  * rota al siguiente cliente e intenta de nuevo, hasta un máximo de veces igual a la cantidad de llaves.
  */
 export const generateContentWithRetry = async (modelParams) => {
@@ -16,6 +16,8 @@ export const generateContentWithRetry = async (modelParams) => {
       throw new Error('No hay API Keys de Gemini configuradas en el servidor');
     }
 
+    const keyPrefix = getPrefixForClient(ai);
+
     try {
       const response = await ai.models.generateContent(modelParams);
       return response;
@@ -24,18 +26,28 @@ export const generateContentWithRetry = async (modelParams) => {
       const errorMsg = error.toString() || '';
       const errorBody = error.message || '';
       
-      const isQuotaError = 
+      const isRetryableError = 
         error.status === 429 || 
+        error.status === 403 || 
+        error.status === 401 ||
         error.statusCode === 429 ||
+        error.statusCode === 403 ||
+        error.statusCode === 401 ||
         errorMsg.includes('429') ||
+        errorMsg.includes('403') ||
+        errorMsg.includes('401') ||
         errorMsg.includes('quota') ||
         errorMsg.includes('RESOURCE_EXHAUSTED') ||
+        errorMsg.includes('PERMISSION_DENIED') ||
         errorBody.includes('429') ||
+        errorBody.includes('403') ||
+        errorBody.includes('401') ||
         errorBody.includes('quota') ||
-        errorBody.includes('RESOURCE_EXHAUSTED');
+        errorBody.includes('RESOURCE_EXHAUSTED') ||
+        errorBody.includes('PERMISSION_DENIED');
 
-      if (isQuotaError && attempt < maxAttempts) {
-        console.warn(`[Gemini API] Llave agotada (429/Resource Exhausted). Reintentando con la siguiente llave (Intento ${attempt}/${maxAttempts})...`);
+      if (isRetryableError && attempt < maxAttempts) {
+        console.warn(`[Gemini API] Llave '${keyPrefix}' falló (error: ${error.status || 'API Error'}). Reintentando con la siguiente llave (Intento ${attempt}/${maxAttempts})...`);
         continue;
       }
 
