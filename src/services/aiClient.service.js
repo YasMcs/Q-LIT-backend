@@ -34,3 +34,5 @@ export const getAiClient = () => {
   
   return client;
 };
+
+export const getAiClientsCount = () => aiClients.length;

@@ -1,7 +1,49 @@
 import { Type } from '@google/genai';
-import { getAiClient } from './aiClient.service.js';
+import { getAiClient, getAiClientsCount } from './aiClient.service.js';
 
-// Ya no inicializamos el cliente estático aquí, lo llamamos en cada petición
+/**
+ * Realiza la generación de contenido mediante la API de Gemini.
+ * Si falla debido a problemas de cuota o límite (429 / RESOURCE_EXHAUSTED),
+ * rota al siguiente cliente e intenta de nuevo, hasta un máximo de veces igual a la cantidad de llaves.
+ */
+const generateContentWithRetry = async (modelParams) => {
+  const maxAttempts = Math.max(getAiClientsCount(), 1);
+  let lastError;
+
+  for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+    const ai = getAiClient();
+    if (!ai) {
+      throw new Error('No hay API Keys de Gemini configuradas en el servidor');
+    }
+
+    try {
+      const response = await ai.models.generateContent(modelParams);
+      return response;
+    } catch (error) {
+      lastError = error;
+      const errorMsg = error.toString() || '';
+      const errorBody = error.message || '';
+      
+      const isQuotaError = 
+        error.status === 429 || 
+        error.statusCode === 429 ||
+        errorMsg.includes('429') ||
+        errorMsg.includes('quota') ||
+        errorMsg.includes('RESOURCE_EXHAUSTED') ||
+        errorBody.includes('429') ||
+        errorBody.includes('quota') ||
+        errorBody.includes('RESOURCE_EXHAUSTED');
+
+      if (isQuotaError && attempt < maxAttempts) {
+        console.warn(`[Gemini API] Llave agotada (429/Resource Exhausted). Reintentando con la siguiente llave (Intento ${attempt}/${maxAttempts})...`);
+        continue;
+      }
+
+      throw error;
+    }
+  }
+  throw lastError;
+};
 /**
  * Evalúa el código SQL de un alumno contra una lista de cotejo.
  * @param {string} studentSqlCode - El código SQL escrito por el alumno
@@ -10,11 +52,6 @@ import { getAiClient } from './aiClient.service.js';
  * @returns {Object} JSON con las calificaciones booleanas y la retroalimentación
  */
 export const evaluateSqlSubmission = async (studentSqlCode, practiceObjective, checklist) => {
-  const ai = getAiClient();
-  if (!ai) {
-    throw new Error('No hay API Keys de Gemini configuradas en el servidor');
-  }
-
   // 1. Armamos el esquema estructurado que queremos que Gemini nos devuelva
   // Queremos que devuelva un JSON exacto, forzado por la API
   const responseSchema = {
@@ -69,8 +106,8 @@ INSTRUCCIONES:
 `;
 
   try {
-    // 3. Llamamos a Gemini (Podemos usar gemini-2.5-flash para rapidez)
-    const response = await ai.models.generateContent({
+    // 3. Llamamos a Gemini usando reintento y rotación
+    const response = await generateContentWithRetry({
         model: 'gemini-2.5-flash',
         contents: prompt,
         config: {
@@ -90,11 +127,6 @@ INSTRUCCIONES:
 };
 
 export const evaluateStep = async (studentSqlCode, stepInstruction) => {
-  const ai = getAiClient();
-  if (!ai) {
-    throw new Error('No hay API Keys de Gemini configuradas');
-  }
-
   // FASE 1: Verificación estricta del objetivo (SÓLO Boolean)
   const validationSchema = {
     type: Type.OBJECT,
@@ -117,7 +149,7 @@ ${studentSqlCode}
 Determina si la consulta cumple la instrucción (SÉ FLEXIBLE: aprueba lógicas alternativas que sean válidas). Responde solo true o false.`;
 
   try {
-    const response1 = await ai.models.generateContent({
+    const response1 = await generateContentWithRetry({
         model: 'gemini-2.5-flash',
         contents: validationPrompt,
         config: {
@@ -153,7 +185,7 @@ ${studentSqlCode}
 \`\`\`
 El código NO cumple el objetivo. Escribe una breve retroalimentación (máx 3 oraciones) guiándolo sin darle la respuesta directa. Sin emojis.`;
 
-    const response2 = await ai.models.generateContent({
+    const response2 = await generateContentWithRetry({
         model: 'gemini-2.5-flash',
         contents: feedbackPrompt,
         config: {

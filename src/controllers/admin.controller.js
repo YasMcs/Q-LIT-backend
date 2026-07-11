@@ -147,6 +147,41 @@ export const getAdminMetrics = async (req, res, next) => {
       ? (((sumErrorsFirstPractice - sumErrorsLastPractice) / sumErrorsFirstPractice) * 100).toFixed(1) 
       : "0.0";
 
+    // --- REINCIDENCIA: Primera vs Última Práctica ---
+    const firstPracticeLogs = [];
+    const lastPracticeLogs = [];
+
+    Object.entries(userPractices).forEach(([userId, practicesObj]) => {
+      const practicesArray = Object.entries(practicesObj)
+        .map(([practiceId, data]) => ({ practiceId, ...data }))
+        .sort((a, b) => a.firstErrorDate - b.firstErrorDate);
+
+      if (practicesArray.length > 1) {
+        const firstPracticeId = practicesArray[0].practiceId;
+        const lastPracticeId = practicesArray[practicesArray.length - 1].practiceId;
+
+        errorLogs.forEach(log => {
+          if (log.userId === userId) {
+            if (log.practiceId === firstPracticeId) {
+              firstPracticeLogs.push(log);
+            } else if (log.practiceId === lastPracticeId) {
+              lastPracticeLogs.push(log);
+            }
+          }
+        });
+      }
+    });
+
+    const firstPracticeReincidence = calculateReincidence(firstPracticeLogs);
+    const lastPracticeReincidence = calculateReincidence(lastPracticeLogs);
+
+    const firstPracticeReincidenceRate = parseFloat(firstPracticeReincidence.reincidenceRate);
+    const lastPracticeReincidenceRate = parseFloat(lastPracticeReincidence.reincidenceRate);
+    const reincidenceAbsoluteReduction = (firstPracticeReincidenceRate - lastPracticeReincidenceRate).toFixed(1);
+    const reincidenceRelativeReduction = firstPracticeReincidenceRate > 0
+      ? (((firstPracticeReincidenceRate - lastPracticeReincidenceRate) / firstPracticeReincidenceRate) * 100).toFixed(1)
+      : "0.0";
+
     // --- RESOLUCIÓN AUTÓNOMA ---
     const practicesWithErrorsSet = new Set();
     errorLogs.forEach(log => {
@@ -193,7 +228,11 @@ export const getAdminMetrics = async (req, res, next) => {
           description: "Comparativa de errores entre la primera y la última práctica por alumno",
           firstInteractionAvgErrors: firstInteractionAvg,
           lastInteractionAvgErrors: lastInteractionAvg,
-          improvementPercentage: evolutionImprovement + "%"
+          improvementPercentage: evolutionImprovement + "%",
+          firstPracticeReincidenceRate: firstPracticeReincidenceRate.toFixed(1) + "%",
+          lastPracticeReincidenceRate: lastPracticeReincidenceRate.toFixed(1) + "%",
+          reincidenceAbsoluteReduction: reincidenceAbsoluteReduction + "%",
+          reincidenceRelativeReduction: reincidenceRelativeReduction + "%"
         },
         autonomy: {
           description: "Tasa de alumnos que cometieron un error pero lograron resolver la práctica con éxito",
