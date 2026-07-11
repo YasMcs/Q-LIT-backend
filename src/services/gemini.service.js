@@ -1,5 +1,5 @@
 import { getCatalogs } from './catalog.service.js';
-import { getAiClient } from './aiClient.service.js';
+import { generateContentWithRetry } from './ai.service.js';
 
 export const generateUniqueProblem = async (description, requiredFunctions, activeDb) => {
   try {
@@ -46,12 +46,7 @@ Instrucciones para ti:
 }
 `;
 
-    const ai = getAiClient();
-    if (!ai) {
-      throw new Error("No hay API Keys de Gemini disponibles");
-    }
-
-    const response = await ai.models.generateContent({
+    const response = await generateContentWithRetry({
       model: 'gemini-2.5-flash',
       contents: prompt,
       config: {

@@ -6,7 +6,7 @@ import { getAiClient, getAiClientsCount } from './aiClient.service.js';
  * Si falla debido a problemas de cuota o límite (429 / RESOURCE_EXHAUSTED),
  * rota al siguiente cliente e intenta de nuevo, hasta un máximo de veces igual a la cantidad de llaves.
  */
-const generateContentWithRetry = async (modelParams) => {
+export const generateContentWithRetry = async (modelParams) => {
   const maxAttempts = Math.max(getAiClientsCount(), 1);
   let lastError;
 
