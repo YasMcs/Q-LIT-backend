@@ -1,12 +1,102 @@
 import { Type } from '@google/genai';
 import { getAiClient, getAiClientsCount, getPrefixForClient } from './aiClient.service.js';
+import OpenAI from 'openai';
+
+// Transforma esquemas de Gemini a formato estándar compatible con Structured Outputs de OpenAI
+const convertSchema = (schema) => {
+  if (!schema) return undefined;
+  
+  const result = {};
+  
+  // Mapear tipos de datos
+  if (schema.type === Type.OBJECT || schema.type === 'OBJECT') {
+    result.type = 'object';
+  } else if (schema.type === Type.STRING || schema.type === 'STRING') {
+    result.type = 'string';
+  } else if (schema.type === Type.ARRAY || schema.type === 'ARRAY') {
+    result.type = 'array';
+  } else if (schema.type === Type.BOOLEAN || schema.type === 'BOOLEAN') {
+    result.type = 'boolean';
+  } else if (schema.type === Type.INTEGER || schema.type === 'INTEGER') {
+    result.type = 'integer';
+  } else {
+    result.type = schema.type;
+  }
+
+  if (schema.description) {
+    result.description = schema.description;
+  }
+
+  if (schema.properties) {
+    result.properties = {};
+    for (const key in schema.properties) {
+      result.properties[key] = convertSchema(schema.properties[key]);
+    }
+  }
+
+  if (schema.required) {
+    result.required = schema.required;
+  }
+
+  if (schema.items) {
+    result.items = convertSchema(schema.items);
+  }
+
+  // Structured Outputs requiere additionalProperties: false en objetos y que todos los campos sean requeridos
+  if (result.type === 'object') {
+    result.additionalProperties = false;
+    if (!result.required) {
+      result.required = Object.keys(result.properties || {});
+    }
+  }
+
+  return result;
+};
 
 /**
- * Realiza la generación de contenido mediante la API de Gemini.
- * Si falla debido a problemas de cuota o límite (429 / RESOURCE_EXHAUSTED) o de permisos (403/401),
- * rota al siguiente cliente e intenta de nuevo, hasta un máximo de veces igual a la cantidad de llaves.
+ * Realiza la generación de contenido mediante la API de Gemini o de OpenAI si está configurada.
  */
 export const generateContentWithRetry = async (modelParams) => {
+  // 1. Si hay una llave de OpenAI configurada localmente, procesamos por OpenAI
+  if (process.env.OPENAI_API_KEY) {
+    const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+    try {
+      console.log(`[OpenAI API] Usando gpt-4o-mini para procesar la petición localmente...`);
+      
+      const messages = [{ role: 'user', content: modelParams.contents }];
+      
+      let responseFormat;
+      if (modelParams.config?.responseMimeType === 'application/json') {
+        if (modelParams.config.responseSchema) {
+          const jsonSchema = convertSchema(modelParams.config.responseSchema);
+          responseFormat = {
+            type: 'json_schema',
+            json_schema: {
+              name: 'structured_response',
+              strict: true,
+              schema: jsonSchema
+            }
+          };
+        } else {
+          responseFormat = { type: 'json_object' };
+        }
+      }
+
+      const completion = await openai.chat.completions.create({
+        model: 'gpt-4o-mini',
+        messages: messages,
+        response_format: responseFormat,
+      });
+
+      const responseText = completion.choices[0].message.content;
+      return { text: responseText };
+    } catch (error) {
+      console.error("[OpenAI API] Error detectado localmente:", error);
+      throw error;
+    }
+  }
+
+  // 2. Si no hay llave de OpenAI, ejecutamos la rotación de Gemini habitual
   const maxAttempts = Math.max(getAiClientsCount(), 1);
   let lastError;
 
@@ -114,7 +204,8 @@ ${JSON.stringify(checklist, null, 2)}
 INSTRUCCIONES:
 1. Revisa detenidamente el código SQL del alumno.
 2. Para cada criterio en la lista de cotejo, determina si el código del alumno lo cumple de manera impecable (true o false).
-3. Escribe una breve retroalimentación general.
+3. Sé flexible al evaluar: acepta lógicas o soluciones alternativas que resuelvan el objetivo de manera válida, siempre y cuando cumplan con el objetivo general y no violen explícitamente las cláusulas de la lista de cotejo.
+4. Escribe una breve retroalimentación general. Sin emojis.
 `;
 
   try {
