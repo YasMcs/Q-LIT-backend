@@ -200,7 +200,12 @@ export const evaluateStep = async (req, res, next) => {
     // 1. Obtener la instrucción del paso actual
     let steps = [];
     try {
-      const parsedStatement = JSON.parse(submission.generatedStatement);
+      let cleaned = (submission.generatedStatement || '').trim();
+      if (cleaned.startsWith("```")) {
+        cleaned = cleaned.replace(/^```[a-zA-Z]*\n?/, "");
+        cleaned = cleaned.replace(/\n?```$/, "");
+      }
+      const parsedStatement = JSON.parse(cleaned.trim());
       steps = parsedStatement.pasos || [];
     } catch (e) {
       return res.status(500).json({ error: { message: "Error al parsear el enunciado" } });
