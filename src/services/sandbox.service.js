@@ -39,11 +39,11 @@ export const executeMockQuery = async (sqlQuery, activeDb, setupSql, completedQu
           }
         }
         
-        // Reactivar la comprobación de claves foráneas
-        await connection.query("SET FOREIGN_KEY_CHECKS = 1");
-
-        // Inyectar el setupSql de la IA
+        // Inyectar el setupSql de la IA (manteniendo checks desactivados por si los inserts no están en orden jerárquico)
         await connection.query(setupSql);
+
+        // Reactivar la comprobación de claves foráneas para la consulta del alumno
+        await connection.query("SET FOREIGN_KEY_CHECKS = 1");
       }
 
       // Inyectar el historial acumulativo de consultas superadas por el alumno
