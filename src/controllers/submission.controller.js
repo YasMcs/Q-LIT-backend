@@ -254,6 +254,50 @@ export const getPracticeSubmissions = async (req, res, next) => {
         deadline: practice.deadline,
         students: formattedStudents
       }
+  } catch (error) {
+    next(error);
+  }
+};
+
+export const resetPractice = async (req, res, next) => {
+  try {
+    const { practiceId } = req.params;
+    const userId = req.user.id;
+
+    // Buscar la submission existente
+    const submission = await prisma.submission.findUnique({
+      where: {
+        userId_practiceId: {
+          userId,
+          practiceId
+        }
+      }
+    });
+
+    if (!submission) {
+      return res.status(404).json({ error: { code: 'NOT_FOUND', message: 'No hay ninguna entrega activa para reiniciar.' } });
+    }
+
+    // No permitir reiniciar si ya fue entregada
+    if (submission.reviewStatus === 'pendiente' || submission.reviewStatus === 'calificada') {
+      return res.status(403).json({
+        error: {
+          code: 'FORBIDDEN',
+          message: 'No puedes reiniciar una práctica que ya ha sido entregada o calificada.'
+        }
+      });
+    }
+
+    // Eliminar la submission (la cascada borrará ChecklistEvaluation y SubmissionStep)
+    await prisma.submission.delete({
+      where: {
+        id: submission.id
+      }
+    });
+
+    res.status(200).json({
+      status: "success",
+      message: "Práctica reiniciada correctamente."
     });
   } catch (error) {
     next(error);

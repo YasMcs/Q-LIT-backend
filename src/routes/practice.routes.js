@@ -29,6 +29,9 @@ router.get('/:id/submissions', submissionController.getPracticeSubmissions);
 // Ruta para iniciar una práctica (Estudiante)
 router.post('/:practiceId/start', submissionController.startPractice);
 
+// Ruta para reiniciar una práctica (Estudiante)
+router.post('/:practiceId/reset', submissionController.resetPractice);
+
 // Execute SQL query (Sandbox Mock)
 router.post('/:practiceId/execute', executionController.executePracticeQuery);
 
