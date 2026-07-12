@@ -28,15 +28,16 @@ El alumno DEBE utilizar obligatoriamente estas palabras clave/funciones en su co
 
 Instrucciones para ti:
 1. Genera un escenario narrativo muy breve y directo (MÁXIMO 2 oraciones).
-2. Plantea el problema dividiéndolo en un flujo de OBJETIVOS lógicos que el estudiante debe resolver en orden. Usando las tablas y columnas reales del esquema proporcionado.
-3. MUY IMPORTANTE: Los objetivos deben ser EXTREMADAMENTE BREVES y CLAROS (MÁXIMO 1 a 2 oraciones cortas). Ve directo al grano sin textos de relleno.
-4. NO incluyas la respuesta SQL ni ejemplos de código en las instrucciones.
-5. NO menciones explícitamente palabras clave SQL en la historia general. En los objetivos, puedes sugerir qué hacer (ej. "selecciona", "elimina").
-6. DEBES generar también un código SQL válido (DML) de tipo INSERT que inserte los datos necesarios para que el estudiante pueda hacer la práctica.
-7. DATOS CONCRETOS Y VALORES REALES: Los objetivos deben contener valores concretos y específicos (nombres reales de autores/estudiantes, IDs específicos, títulos de libros, nuevos números de teléfono, etc.) que coincidan exactamente con los datos que estás insertando en tu "setup_sql". Evita enunciados abstractos como "el ID especificado" o "el nombre deseado". Especifica con precisión los nombres o IDs que el estudiante debe buscar, filtrar o actualizar en su consulta SQL para que sepa exactamente qué escribir.
-8. REDACCIÓN NATURAL Y LÓGICA: Redacta los enunciados de manera natural y coherente para un estudiante. Evita textos de plantilla redundantes. Por ejemplo, en lugar de "Lista todos los datos del profesor cuyo nombre coincide exactamente con 'Ana García'", di "Consulta la información de la profesora 'Ana García'". En lugar de "Identifica todas las carreras que tienen como nombre exacto 'Ingeniería de Software'", di "Obtén la información de la carrera 'Ingeniería de Software'".
-9. SENTIDO COMÚN Y COHERENCIA REALISTA: Los escenarios y las modificaciones de datos planteadas deben tener sentido común y lógica en el mundo real. Evita cambios absurdos, redundantes o graciosos (por ejemplo, cambiar una nacionalidad de "Colombiano" a "Colombian" en inglés, o cambiar el nombre de un autor por algo casi idéntico o sin sentido). Los cambios solicitados deben representar tareas reales y lógicas de gestión de datos (como corregir una errata ortográfica real, cambiar un número de teléfono viejo por uno nuevo coherente, actualizar el estado de un registro activo/inactivo, etc.).
-10. Devuelve tu respuesta ÚNICAMENTE en un formato JSON válido con la siguiente estructura, sin comillas Markdown de bloque de código \`\`\`json:
+2. Plantea el problema dividiéndolo en un flujo de exactamente 3 a 4 OBJETIVOS lógicos (pasos) que el estudiante debe resolver en orden. Usando las tablas y columnas reales del esquema proporcionado.
+3. CONCORDANCIA Y COHERENCIA: Todos los objetivos deben tener una relación directa, lógica y total concordancia con lo que se requiere en el objetivo del profesor ("${description}") y con el uso de las palabras clave/funciones obligatorias. No generes pasos de relleno o que no tengan sentido con el problema principal.
+4. MUY IMPORTANTE: Los objetivos deben ser EXTREMADAMENTE BREVES y CLAROS (MÁXIMO 1 a 2 oraciones cortas). Ve directo al grano sin textos de relleno.
+5. NO incluyas la respuesta SQL ni ejemplos de código en las instrucciones.
+6. NO menciones explícitamente palabras clave SQL en la historia general. En los objetivos, puedes sugerir qué hacer (ej. "selecciona", "elimina").
+7. DEBES generar también un código SQL válido (DML) de tipo INSERT que inserte los datos necesarios para que el estudiante pueda hacer la práctica.
+8. DATOS CONCRETOS Y VALORES REALES: Los objetivos deben contener valores concretos y específicos (nombres reales de autores/estudiantes, IDs específicos, títulos de libros, nuevos números de teléfono, etc.) que coincidan exactamente con los datos que estás insertando en tu "setup_sql". Evita enunciados abstractos como "el ID especificado" o "el nombre deseado". Especifica con precisión los nombres o IDs que el estudiante debe buscar, filtrar o actualizar en su consulta SQL para que sepa exactamente qué escribir.
+9. REDACCIÓN NATURAL Y LÓGICA: Redacta los enunciados de manera natural y coherente para un estudiante. Evita textos de plantilla redundantes. Por ejemplo, en lugar de "Lista todos los datos del profesor cuyo nombre coincide exactamente con 'Ana García'", di "Consulta la información de la profesora 'Ana García'". En lugar de "Identifica todas las carreras que tienen como nombre exacto 'Ingeniería de Software'", di "Obtén la información de la carrera 'Ingeniería de Software'".
+10. SENTIDO COMÚN Y COHERENCIA REALISTA: Los escenarios y las modificaciones de datos planteadas deben tener sentido común y lógica en el mundo real. Evita cambios absurdos, redundantes o graciosos (por ejemplo, cambiar una nacionalidad de "Colombiano" a "Colombian" en inglés, o cambiar el nombre de un autor por algo casi idéntico o sin sentido). Los cambios solicitados deben representar tareas reales y lógicas de gestión de datos (como corregir una errata ortográfica real, cambiar un número de teléfono viejo por uno nuevo coherente, actualizar el estado de un registro activo/inactivo, etc.).
+11. Devuelve tu respuesta ÚNICAMENTE en un formato JSON válido con la siguiente estructura, sin comillas Markdown de bloque de código \`\`\`json:
 {
   "historia": "El escenario narrativo aquí...",
   "pasos": [
@@ -59,7 +60,7 @@ Instrucciones para ti:
         },
         pasos: {
           type: Type.ARRAY,
-          description: "La lista de pasos/objetivos a resolver.",
+          description: "La lista de pasos/objetivos a resolver. Debe contener exactamente entre 3 y 4 pasos lógicos que tengan total concordancia con el problema planteado.",
           items: {
             type: Type.OBJECT,
             properties: {
