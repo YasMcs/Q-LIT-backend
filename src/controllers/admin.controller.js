@@ -108,7 +108,28 @@ export const getAdminMetrics = async (req, res, next) => {
       };
     };
 
+    // Clasificación de conceptos de error
+    const classifyConcept = (concept) => {
+      const c = (concept || '').toLowerCase();
+      if (c === 'sintaxis') {
+        return 'Sintaxis';
+      } else if (c.includes('diccionario') || c.includes('tabla') || c.includes('columna')) {
+        return 'Esquema';
+      } else {
+        return 'Lógica';
+      }
+    };
+
+    const calculateReincidenceByCategory = (logs, category) => {
+      const filteredLogs = logs.filter(log => classifyConcept(log.sqlConcept) === category);
+      return calculateReincidence(filteredLogs);
+    };
+
     const overallMetrics = calculateReincidence(errorLogs);
+    const overallSintaxis = calculateReincidenceByCategory(errorLogs, 'Sintaxis');
+    const overallEsquema = calculateReincidenceByCategory(errorLogs, 'Esquema');
+    const overallLogica = calculateReincidenceByCategory(errorLogs, 'Lógica');
+
     const constantLogs = errorLogs.filter(log => constantUsersIds.has(log.userId));
     const occasionalLogs = errorLogs.filter(log => occasionalUsersIds.has(log.userId));
 
@@ -182,6 +203,21 @@ export const getAdminMetrics = async (req, res, next) => {
       ? (((firstPracticeReincidenceRate - lastPracticeReincidenceRate) / firstPracticeReincidenceRate) * 100).toFixed(1)
       : "0.0";
 
+    // Reincidencias por categorías en evolución (Primera vs Última Práctica)
+    const firstSintaxis = calculateReincidenceByCategory(firstPracticeLogs, 'Sintaxis');
+    const lastSintaxis = calculateReincidenceByCategory(lastPracticeLogs, 'Sintaxis');
+    const firstEsquema = calculateReincidenceByCategory(firstPracticeLogs, 'Esquema');
+    const lastEsquema = calculateReincidenceByCategory(lastPracticeLogs, 'Esquema');
+    const firstLogica = calculateReincidenceByCategory(firstPracticeLogs, 'Lógica');
+    const lastLogica = calculateReincidenceByCategory(lastPracticeLogs, 'Lógica');
+
+    const getRelativeReduction = (first, last) => {
+      const fVal = parseFloat(first.reincidenceRate);
+      const lVal = parseFloat(last.reincidenceRate);
+      if (fVal === 0) return "0.0";
+      return (((fVal - lVal) / fVal) * 100).toFixed(1);
+    };
+
     // --- RESOLUCIÓN AUTÓNOMA ---
     const practicesWithErrorsSet = new Set();
     errorLogs.forEach(log => {
@@ -212,6 +248,11 @@ export const getAdminMetrics = async (req, res, next) => {
           successCases: submissions.filter(s => s.reviewStatus === 'calificada').length,
           totalUsersEvaluated: Object.keys(userStats).length
         },
+        overallByCategory: {
+          sintaxis: overallSintaxis,
+          esquema: overallEsquema,
+          logica: overallLogica
+        },
         engagement: {
           constantUsers: {
             description: "Usuarios con >= 7 días de interacción",
@@ -232,7 +273,24 @@ export const getAdminMetrics = async (req, res, next) => {
           firstPracticeReincidenceRate: firstPracticeReincidenceRate.toFixed(1) + "%",
           lastPracticeReincidenceRate: lastPracticeReincidenceRate.toFixed(1) + "%",
           reincidenceAbsoluteReduction: reincidenceAbsoluteReduction + "%",
-          reincidenceRelativeReduction: reincidenceRelativeReduction + "%"
+          reincidenceRelativeReduction: reincidenceRelativeReduction + "%",
+          byCategory: {
+            sintaxis: {
+              firstPracticeReincidenceRate: parseFloat(firstSintaxis.reincidenceRate).toFixed(1) + "%",
+              lastPracticeReincidenceRate: parseFloat(lastSintaxis.reincidenceRate).toFixed(1) + "%",
+              reincidenceRelativeReduction: getRelativeReduction(firstSintaxis, lastSintaxis) + "%"
+            },
+            esquema: {
+              firstPracticeReincidenceRate: parseFloat(firstEsquema.reincidenceRate).toFixed(1) + "%",
+              lastPracticeReincidenceRate: parseFloat(lastEsquema.reincidenceRate).toFixed(1) + "%",
+              reincidenceRelativeReduction: getRelativeReduction(firstEsquema, lastEsquema) + "%"
+            },
+            logica: {
+              firstPracticeReincidenceRate: parseFloat(firstLogica.reincidenceRate).toFixed(1) + "%",
+              lastPracticeReincidenceRate: parseFloat(lastLogica.reincidenceRate).toFixed(1) + "%",
+              reincidenceRelativeReduction: getRelativeReduction(firstLogica, lastLogica) + "%"
+            }
+          }
         },
         autonomy: {
           description: "Tasa de alumnos que cometieron un error pero lograron resolver la práctica con éxito",
