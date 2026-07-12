@@ -254,6 +254,7 @@ export const getPracticeSubmissions = async (req, res, next) => {
         deadline: practice.deadline,
         students: formattedStudents
       }
+    });
   } catch (error) {
     next(error);
   }
