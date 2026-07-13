@@ -50,11 +50,16 @@ const getFallbackTranslation = (error, sqlQuery) => {
   } else if (code === 'ER_DATA_TOO_LONG' || message.toLowerCase().includes('data too long')) {
     mensaje = "El texto o valor que intentas guardar es demasiado largo para la columna.";
     sugerencia = "Revisa el diccionario de entidades para ver la longitud máxima permitida (ej. VARCHAR(50)) y acorta tu texto para que encaje.";
-  } else if (code === 'ER_BAD_NULL_ERROR' || message.toLowerCase().includes('cannot be null')) {
-    const match = message.match(/Column '(.+?)' cannot be null/i);
-    const colName = match ? match[1] : 'una columna';
-    mensaje = `Intentaste dejar vacía la columna ${colName ? `'${colName}'` : ''}, pero es obligatoria.`;
-    sugerencia = "Esta columna no acepta valores nulos. Asegúrate de incluirla en tu INSERT o UPDATE y proporcionarle un valor válido.";
+  } else if (code === 'ER_BAD_NULL_ERROR' || message.toLowerCase().includes('cannot be null') || code === 'ER_NO_DEFAULT_FOR_FIELD' || message.toLowerCase().includes('default value')) {
+    let colName = 'una columna';
+    const matchNull = message.match(/Column '(.+?)' cannot be null/i);
+    const matchDefault = message.match(/Field '(.+?)' doesn't have a default value/i);
+    if (matchNull) colName = matchNull[1];
+    else if (matchDefault) colName = matchDefault[1];
+    
+    mensaje = `Intentaste dejar vacía la columna ${colName !== 'una columna' ? `'${colName}'` : 'obligatoria'}, o no le proporcionaste un valor válido.`;
+    sugerencia = "Esta columna es obligatoria y no acepta valores nulos ni tiene un valor predeterminado. Asegúrate de incluirla en tu INSERT y proporcionarle un valor válido.";
+    conceptoSQL = "Obligatoriedad";
   }
 
   return { mensaje, sugerencia, conceptoSQL };
