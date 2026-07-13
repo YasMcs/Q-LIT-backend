@@ -8,6 +8,16 @@ const resend = new Resend(process.env.RESEND_API_KEY);
 // Dirección remitente con dominio verificado en Resend
 const SENDER_EMAIL = 'Q-LIT Notificaciones <noreply@q-lit.online>';
 
+/**
+ * Pausa la ejecución por `ms` milisegundos.
+ * Se usa para respetar el rate limit de Resend (10 req/seg).
+ */
+const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+
+// Delay entre correos para no superar el rate limit de Resend (10/seg).
+// Con 150 ms enviamos ~6 correos/seg, con margen de seguridad.
+const EMAIL_SEND_DELAY_MS = 150;
+
 // Iconos SVG reutilizables para el HTML del correo
 const ICON = {
   star:    `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="#6366f1" style="vertical-align:middle;margin-right:6px;"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>`,
@@ -80,6 +90,9 @@ const sendEmail = async (to, subject, html) => {
   }
 
   try {
+    // Esperar antes de enviar para respetar el rate limit de Resend
+    await sleep(EMAIL_SEND_DELAY_MS);
+
     const { data, error } = await resend.emails.send({
       from: SENDER_EMAIL,
       to: [to],
