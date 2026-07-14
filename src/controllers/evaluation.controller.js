@@ -190,12 +190,24 @@ export const evaluateStep = async (req, res, next) => {
 
     const submission = await prisma.submission.findUnique({
       where: { id: submissionId },
-      include: { practice: true }
+      include: {
+        practice: true,
+        steps: {
+          where: { completed: true },
+          orderBy: { stepIndex: 'asc' },
+          select: { finalSqlCode: true }
+        }
+      }
     });
 
     if (!submission || submission.userId !== userId) {
       return res.status(404).json({ error: { message: "Submission no encontrada" } });
     }
+
+    // Extraer el array de sentencias SQL previamente superadas por el alumno
+    const completedQueries = submission.steps
+      ? submission.steps.map(step => step.finalSqlCode).filter(sql => sql && sql.trim() !== '')
+      : [];
 
     // 1. Obtener la instrucción del paso actual
     let steps = [];
@@ -220,7 +232,7 @@ export const evaluateStep = async (req, res, next) => {
     let executionResultData = null;
     let sqlErrorToTranslate = null;
     try {
-      executionResultData = await executeMockQuery(studentSqlCode, activeDb || "punto_venta_db", submission.setupSql);
+      executionResultData = await executeMockQuery(studentSqlCode, activeDb || "punto_venta_db", submission.setupSql, completedQueries);
     } catch (sqlError) {
       sqlErrorToTranslate = sqlError;
     }
