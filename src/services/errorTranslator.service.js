@@ -38,10 +38,10 @@ const getFallbackTranslation = (error, sqlQuery) => {
   } else if (code === 'ER_NON_UNIQ_ERROR' || message.toLowerCase().includes('ambiguous')) {
     mensaje = "Una columna es ambigua porque existe en varias tablas de tu JOIN.";
     sugerencia = "Especifica a qué tabla pertenece la columna usando la nomenclatura 'tabla.columna' (por ejemplo: 'citas.id' o 'medicos.nombre').";
-  } else if (code === 'ER_ROW_IS_REFERENCED_2' || (message.toLowerCase().includes('foreign key constraint fails') && (message.toLowerCase().includes('delete') || message.toLowerCase().includes('update')))) {
-    mensaje = "No puedes eliminar o actualizar este registro porque está siendo utilizado (referenciado) por otra tabla.";
+  } else if (code === 'ER_ROW_IS_REFERENCED_2' || message.toLowerCase().includes('cannot delete or update a parent row')) {
+    mensaje = "No puedes eliminar o actualizar este registro porque está siendo utilizado (referenciado por registros) en otra tabla.";
     sugerencia = "Concepto de Llave Foránea: Este registro tiene datos asociados en otra tabla. Primero debes revisar las otras tablas para encontrar y entender qué registros dependen de él, o elegir eliminar un registro que no tenga dependencias. ¡Puedes usar SELECT para explorar los datos!";
-  } else if (code === 'ER_NO_REFERENCED_ROW_2' || message.toLowerCase().includes('foreign key constraint fails')) {
+  } else if (code === 'ER_NO_REFERENCED_ROW_2' || message.toLowerCase().includes('cannot add or update a child row') || message.toLowerCase().includes('foreign key constraint fails')) {
     mensaje = "Estás intentando guardar o actualizar un registro que hace referencia a un ID que no existe en otra tabla.";
     sugerencia = "Concepto de Llave Foránea: Estás asignando una relación (como un doctor, paciente o categoría) que no existe en la tabla principal. Revisa qué IDs están disponibles en esa tabla antes de realizar tu operación.";
   } else if (code === 'ER_DUP_ENTRY' || message.toLowerCase().includes('duplicate entry')) {
