@@ -60,6 +60,12 @@ const getFallbackTranslation = (error, sqlQuery) => {
     mensaje = `Intentaste dejar vacía la columna ${colName !== 'una columna' ? `'${colName}'` : 'obligatoria'}, o no le proporcionaste un valor válido.`;
     sugerencia = "Esta columna es obligatoria y no acepta valores nulos ni tiene un valor predeterminado. Asegúrate de incluirla en tu INSERT y proporcionarle un valor válido.";
     conceptoSQL = "Obligatoriedad";
+  } else if (code === 'ER_WARN_DATA_TRUNCATED' || message.toLowerCase().includes('data truncated for column')) {
+    const match = message.match(/Data truncated for column '(.+?)'/i);
+    const colName = match ? match[1] : '';
+    mensaje = `El valor que intentas ingresar en la columna ${colName ? `'${colName}' ` : ''}no es válido o tiene un formato incorrecto.`;
+    sugerencia = "Verifica que el valor que estás intentando guardar coincida exactamente con las opciones permitidas (por ejemplo, los valores permitidos de una columna ENUM, o el formato de fecha y tipo de dato).";
+    conceptoSQL = "Datos - Formato/ENUM";
   }
 
   return { mensaje, sugerencia, conceptoSQL };
