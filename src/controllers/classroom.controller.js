@@ -130,7 +130,7 @@ export const createClassroom = async (req, res, next) => {
       });
     }
 
-    // Asegurar que el docente exista en la base de datos (evita fallos de integridad en JMeter)
+    // Asegurar que el docente exista en la base de datos (evita fallos de integridad relacional en pruebas de carga JMeter)
     const userExists = await prisma.user.findUnique({
       where: { id: teacherId }
     });
