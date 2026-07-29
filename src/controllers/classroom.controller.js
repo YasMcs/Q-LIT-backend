@@ -131,20 +131,26 @@ export const createClassroom = async (req, res, next) => {
     }
 
     // Asegurar que el docente exista en la base de datos (evita fallos de integridad relacional en pruebas de carga JMeter)
-    const userExists = await prisma.user.findUnique({
-      where: { id: teacherId }
+    const email = teacherId.includes('@') ? teacherId : `${teacherId}@correo.com`;
+    let userExists = await prisma.user.findFirst({
+      where: {
+        OR: [
+          { id: teacherId },
+          { email: email }
+        ]
+      }
     });
+
     if (!userExists) {
-      await prisma.user.create({
+      userExists = await prisma.user.create({
         data: {
           id: teacherId,
           name: teacherId.split('@')[0],
-          email: teacherId.includes('@') ? teacherId : `${teacherId}@correo.com`,
+          email: email,
           role: 'teacher'
         }
       });
     }
-
 
     // Generar un código de invitación aleatorio de 6 caracteres alfanuméricos
     const inviteCode = Math.random().toString(36).substring(2, 8).toUpperCase();
@@ -154,9 +160,10 @@ export const createClassroom = async (req, res, next) => {
         name,
         group,
         inviteCode,
-        teacherId
+        teacherId: userExists.id
       }
     });
+
 
     res.status(201).json({ 
       data: {
