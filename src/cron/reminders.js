@@ -5,9 +5,15 @@ import { sendReminderEmail } from '../services/email.service.js';
 export const startRemindersCron = () => {
   // Ejecutar todos los días a las 12:00 AM (0 0 * * *)
   cron.schedule('0 0 * * *', async () => {
-    console.log('⏳ Ejecutando Cron Job de Recordatorios de Prácticas...');
+    console.log('Ejecutando Cron Job de Recordatorios y Mantenimiento de BD...');
     try {
+      // 1. Limpieza de error logs antiguos (> 30 días) usando Stored Procedure
+      console.log('Iniciando purga de logs antiguos con sp_clean_old_error_logs...');
+      await prisma.$executeRawUnsafe('CALL sp_clean_old_error_logs(30)');
+      console.log('Purga de logs completada.');
+
       const now = new Date();
+
       // Queremos avisar sobre las prácticas que vencen entre las próximas 24 y 48 horas
       const tomorrow = new Date(now.getTime() + 24 * 60 * 60 * 1000);
       const dayAfterTomorrow = new Date(now.getTime() + 48 * 60 * 60 * 1000);
@@ -60,9 +66,9 @@ export const startRemindersCron = () => {
         }
       }
 
-      console.log(`✅ Cron Job finalizado. Se enviaron ${emailsSent} correos recordatorios.`);
+      console.log(`Cron Job finalizado. Se enviaron ${emailsSent} correos recordatorios.`);
     } catch (error) {
-      console.error('❌ Error en el Cron Job de recordatorios:', error);
+      console.error('Error en el Cron Job de recordatorios:', error);
     }
   });
 };

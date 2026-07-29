@@ -6,7 +6,7 @@ export const generateUniqueProblem = async (description, requiredFunctions, acti
   try {
     const catalogs = await getCatalogs();
     const db = catalogs.find(c => c.name === activeDb);
-    
+
     let dbSchema = "Esquema genérico no definido";
     if (db) {
       dbSchema = db.tables.map(table => {

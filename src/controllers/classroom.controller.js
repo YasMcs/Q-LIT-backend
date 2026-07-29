@@ -130,6 +130,22 @@ export const createClassroom = async (req, res, next) => {
       });
     }
 
+    // Asegurar que el docente exista en la base de datos (evita fallos de integridad en JMeter)
+    const userExists = await prisma.user.findUnique({
+      where: { id: teacherId }
+    });
+    if (!userExists) {
+      await prisma.user.create({
+        data: {
+          id: teacherId,
+          name: teacherId.split('@')[0],
+          email: teacherId.includes('@') ? teacherId : `${teacherId}@correo.com`,
+          role: 'teacher'
+        }
+      });
+    }
+
+
     // Generar un código de invitación aleatorio de 6 caracteres alfanuméricos
     const inviteCode = Math.random().toString(36).substring(2, 8).toUpperCase();
 
@@ -409,10 +425,9 @@ export const archiveClassroom = async (req, res, next) => {
       });
     }
 
-    await prisma.classroom.update({
-      where: { id },
-      data: { isArchived: true }
-    });
+    // Invocar procedimiento almacenado para archivar clase e inscripciones asociadas
+    await prisma.$executeRawUnsafe(`CALL sp_archive_classroom('${id}')`);
+
 
     res.status(200).json({
       status: "success",
@@ -534,8 +549,9 @@ export const getTeacherStatistics = async (req, res, next) => {
       { keywords: ['GROUP BY'], label: 'Agrupamiento con GROUP BY', total: 0, failed: 0 }
     ];
 
-    const classStats = [];
+    let classStats = [];
     const allStudentIds = new Set();
+
 
     // Iterar sobre cada clase
     for (const cls of classrooms) {
@@ -633,6 +649,33 @@ export const getTeacherStatistics = async (req, res, next) => {
         status
       });
     }
+
+    // Consumir la vista v_classroom_stats desde la base de datos
+    try {
+      const viewClassroomStats = await prisma.$queryRawUnsafe('SELECT * FROM v_classroom_stats');
+      const teacherClassroomIds = classrooms.map(c => c.id);
+      classStats = viewClassroomStats
+        .filter(stat => teacherClassroomIds.includes(stat.classroom_id))
+        .map(stat => {
+          const avgScore = stat.average_grade !== null ? Math.round(Number(stat.average_grade)) : null;
+          let status = 'empty';
+          if (avgScore !== null) {
+            status = 'good';
+            if (avgScore < 60) status = 'poor';
+            else if (avgScore < 80) status = 'average';
+          }
+          return {
+            id: stat.classroom_id,
+            name: stat.classroom_name,
+            group: stat.classroom_group || "Sin Grupo",
+            avgScore,
+            status
+          };
+        });
+    } catch (viewError) {
+      console.warn("Error al consultar la vista v_classroom_stats, usando fallback:", viewError);
+    }
+
 
     // Calcular estudiantes con promedio bajo (< 60) como estudiantes en riesgo
     Object.entries(studentsScores).forEach(([studentId, data]) => {
@@ -835,9 +878,20 @@ export const getTeacherStudents = async (req, res, next) => {
           });
         }
 
-        const average = evaluatedPracticesCount > 0 
+        let average = evaluatedPracticesCount > 0 
           ? Math.round(totalScoreSum / evaluatedPracticesCount) 
           : 100; // 100 por defecto si no hay prácticas
+
+        // Consumir la función almacenada fn_get_student_average de la base de datos
+        try {
+          const dbAvgRes = await prisma.$queryRawUnsafe(`SELECT fn_get_student_average('${student.id}') AS avg`);
+          if (dbAvgRes && dbAvgRes[0] && dbAvgRes[0].avg !== null && dbAvgRes[0].avg !== undefined) {
+            average = Math.round(Number(dbAvgRes[0].avg));
+          }
+        } catch (dbAvgError) {
+          console.warn("Error al consultar fn_get_student_average, usando fallback:", dbAvgError);
+        }
+
 
         studentsList.push({
           id: `${student.id}_${cls.id}`,
