@@ -15,6 +15,7 @@ router.patch('/:id/unarchive-student', bffAuthMiddleware, classroomController.un
 router.get('/', classroomController.getClassroomsByTeacher);
 router.get('/teacher/statistics', classroomController.getTeacherStatistics);
 router.get('/teacher/students', classroomController.getTeacherStudents);
+router.get('/:id/export-excel', classroomController.exportClassroomExcel);
 router.get('/:id', classroomController.getClassroomById);
 router.post('/', classroomController.createClassroom);
 router.delete('/:id', classroomController.archiveClassroom);

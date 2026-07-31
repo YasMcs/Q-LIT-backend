@@ -1,6 +1,5 @@
 import { prisma } from '../config/db.js';
-
-/**
+import ExcelJS from 'exceljs';/**
  * Obtiene la lista de laboratorios (classrooms) en los que un docente participa, 
  * ya sea como creador principal (teacherId) o como docente de apoyo (co_teacher).
  * 
@@ -921,3 +920,101 @@ export const getTeacherStudents = async (req, res, next) => {
   }
 };
 
+/**
+ * Exporta un reporte en Excel de las entregas de los estudiantes de un laboratorio.
+ */
+export const exportClassroomExcel = async (req, res, next) => {
+  try {
+    const { id } = req.params;
+
+    const classroom = await prisma.classroom.findUnique({
+      where: { id },
+      include: {
+        practices: {
+          orderBy: { createdAt: 'asc' }
+        },
+        enrollments: {
+          where: { role: 'student' },
+          include: {
+            user: {
+              include: {
+                submissions: {
+                  where: {
+                    practice: { classroomId: id }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    });
+
+    if (!classroom) {
+      return res.status(404).json({ error: { message: 'Laboratorio no encontrado' } });
+    }
+
+    const workbook = new ExcelJS.Workbook();
+    const worksheet = workbook.addWorksheet('Reporte de Entregas');
+
+    // Definir columnas
+    const columns = [
+      { header: 'Nombre del Alumno', key: 'name', width: 30 },
+      { header: 'Email', key: 'email', width: 30 },
+    ];
+
+    classroom.practices.forEach((practice, index) => {
+      columns.push({
+        header: practice.title || `Práctica ${index + 1}`,
+        key: `practice_${practice.id}`,
+        width: 20
+      });
+    });
+
+    worksheet.columns = columns;
+
+    // Agregar estilo a la cabecera
+    worksheet.getRow(1).font = { bold: true };
+    worksheet.getRow(1).alignment = { horizontal: 'center' };
+
+    // Agregar filas
+    classroom.enrollments.forEach(enrollment => {
+      const student = enrollment.user;
+      const rowData = {
+        name: student.name || 'Sin nombre',
+        email: student.email || 'Sin correo',
+      };
+
+      classroom.practices.forEach(practice => {
+        const submission = student.submissions.find(s => s.practiceId === practice.id);
+        
+        // Marcador: si entregó (estado pendiente o calificada), ponemos "X", si no, vacío
+        let statusMark = '';
+        if (submission && (submission.reviewStatus === 'pendiente' || submission.reviewStatus === 'calificada')) {
+           statusMark = 'X';
+        }
+        
+        rowData[`practice_${practice.id}`] = statusMark;
+      });
+
+      const row = worksheet.addRow(rowData);
+      
+      // Centrar las "X"
+      classroom.practices.forEach(practice => {
+        const colIndex = worksheet.getColumn(`practice_${practice.id}`).number;
+        row.getCell(colIndex).alignment = { horizontal: 'center' };
+      });
+    });
+
+    // Configurar respuesta HTTP para descargar archivo
+    res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+    res.setHeader('Content-Disposition', `attachment; filename="Reporte_${classroom.name.replace(/\s+/g, '_')}.xlsx"`);
+
+    await workbook.xlsx.write(res);
+    res.end();
+
+  } catch (error) {
+    console.error("Error al exportar Excel:", error);
+    next(error);
+  }
+};
