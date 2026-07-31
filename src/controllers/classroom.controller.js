@@ -961,7 +961,6 @@ export const exportClassroomExcel = async (req, res, next) => {
     const columns = [
       { header: 'Nombre del Alumno', key: 'name', width: 30 },
       { header: 'Email', key: 'email', width: 30 },
-      { header: 'Grupo', key: 'group', width: 20 },
     ];
 
     classroom.practices.forEach((practice, index) => {
@@ -976,17 +975,28 @@ export const exportClassroomExcel = async (req, res, next) => {
 
     worksheet.columns = columns;
 
-    // Insertar fila superior para "Prácticas"
+    // Insertar fila superior para "Grupo" y "Prácticas"
     worksheet.insertRow(1, []);
     const superHeaderRow = worksheet.getRow(1);
     const mainHeaderRow = worksheet.getRow(2);
 
+    // Encabezado general del Grupo
+    superHeaderRow.getCell(1).value = `GRUPO : ${classroom.name}`;
+    worksheet.mergeCells(1, 1, 1, 2); // Unir columnas Name y Email
+    superHeaderRow.getCell(1).alignment = { horizontal: 'center', vertical: 'middle' };
+    superHeaderRow.getCell(1).font = { bold: true, color: { argb: 'FFFFFFFF' } };
+    superHeaderRow.getCell(1).fill = {
+      type: 'pattern',
+      pattern: 'solid',
+      fgColor: { argb: 'FF4F46E5' } // Indigo color
+    };
+
     if (classroom.practices.length > 0) {
-      superHeaderRow.getCell(4).value = 'Prácticas';
-      worksheet.mergeCells(1, 4, 1, 3 + classroom.practices.length);
-      superHeaderRow.getCell(4).alignment = { horizontal: 'center', vertical: 'middle' };
-      superHeaderRow.getCell(4).font = { bold: true, color: { argb: 'FFFFFFFF' } };
-      superHeaderRow.getCell(4).fill = {
+      superHeaderRow.getCell(3).value = 'Prácticas';
+      worksheet.mergeCells(1, 3, 1, 2 + classroom.practices.length);
+      superHeaderRow.getCell(3).alignment = { horizontal: 'center', vertical: 'middle' };
+      superHeaderRow.getCell(3).font = { bold: true, color: { argb: 'FFFFFFFF' } };
+      superHeaderRow.getCell(3).fill = {
         type: 'pattern',
         pattern: 'solid',
         fgColor: { argb: 'FF10B981' } // Emerald green
@@ -1012,7 +1022,6 @@ export const exportClassroomExcel = async (req, res, next) => {
       const rowData = {
         name: student.name || 'Sin nombre',
         email: student.email || 'Sin correo',
-        group: classroom.name || 'Sin grupo',
       };
 
       classroom.practices.forEach(practice => {
@@ -1031,13 +1040,6 @@ export const exportClassroomExcel = async (req, res, next) => {
 
       const row = worksheet.addRow(rowData);
       
-      // Centrar y dar color al grupo
-      const groupColIndex = worksheet.getColumn('group').number;
-      row.getCell(groupColIndex).fill = {
-        type: 'pattern',
-        pattern: 'solid',
-        fgColor: { argb: 'FFE5E7EB' } // Light gray para diferenciarlo
-      };
       
       classroom.practices.forEach(practice => {
         const colIndex = worksheet.getColumn(`practice_${practice.id}`).number;
