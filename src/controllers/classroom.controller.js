@@ -981,7 +981,8 @@ export const exportClassroomExcel = async (req, res, next) => {
     const mainHeaderRow = worksheet.getRow(2);
 
     // Encabezado general del Grupo
-    superHeaderRow.getCell(1).value = `GRUPO : ${classroom.name}`;
+    const groupText = classroom.group ? ` | grupo: ${classroom.group}` : '';
+    superHeaderRow.getCell(1).value = `${classroom.name}${groupText}`;
     worksheet.mergeCells(1, 1, 1, 2); // Unir columnas Name y Email
     superHeaderRow.getCell(1).alignment = { horizontal: 'center', vertical: 'middle' };
     superHeaderRow.getCell(1).font = { bold: true, color: { argb: 'FFFFFFFF' } };
