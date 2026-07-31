@@ -1052,7 +1052,7 @@ export const exportClassroomExcel = async (req, res, next) => {
 
     // Configurar respuesta HTTP para descargar archivo
     res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
-    res.setHeader('Content-Disposition', `attachment; filename="Reporte_${classroom.name.replace(/\s+/g, '_')}.xlsx"`);
+    res.setHeader('Content-Disposition', `attachment; filename="Reporte_Entregas_${classroom.name.replace(/\s+/g, '_')}.xlsx"`);
 
     await workbook.xlsx.write(res);
     res.end();
