@@ -961,49 +961,93 @@ export const exportClassroomExcel = async (req, res, next) => {
     const columns = [
       { header: 'Nombre del Alumno', key: 'name', width: 30 },
       { header: 'Email', key: 'email', width: 30 },
+      { header: 'Grupo', key: 'group', width: 20 },
     ];
 
     classroom.practices.forEach((practice, index) => {
       columns.push({
-        header: practice.title || `Práctica ${index + 1}`,
+        header: `${index + 1}`, // Números como columnas
         key: `practice_${practice.id}`,
-        width: 20
+        width: 10
       });
     });
 
+    columns.push({ header: 'Total', key: 'total', width: 15 });
+
     worksheet.columns = columns;
 
-    // Agregar estilo a la cabecera
-    worksheet.getRow(1).font = { bold: true };
-    worksheet.getRow(1).alignment = { horizontal: 'center' };
+    // Insertar fila superior para "Prácticas"
+    worksheet.insertRow(1, []);
+    const superHeaderRow = worksheet.getRow(1);
+    const mainHeaderRow = worksheet.getRow(2);
+
+    if (classroom.practices.length > 0) {
+      superHeaderRow.getCell(4).value = 'Prácticas';
+      worksheet.mergeCells(1, 4, 1, 3 + classroom.practices.length);
+      superHeaderRow.getCell(4).alignment = { horizontal: 'center', vertical: 'middle' };
+      superHeaderRow.getCell(4).font = { bold: true, color: { argb: 'FFFFFFFF' } };
+      superHeaderRow.getCell(4).fill = {
+        type: 'pattern',
+        pattern: 'solid',
+        fgColor: { argb: 'FF10B981' } // Emerald green
+      };
+    }
+
+    // Agregar estilo a la cabecera principal
+    mainHeaderRow.font = { bold: true, color: { argb: 'FFFFFFFF' } };
+    mainHeaderRow.alignment = { horizontal: 'center', vertical: 'middle' };
+    mainHeaderRow.eachCell((cell, colNumber) => {
+      cell.fill = {
+        type: 'pattern',
+        pattern: 'solid',
+        fgColor: { argb: 'FF4F46E5' } // Indigo color
+      };
+    });
 
     // Agregar filas
     classroom.enrollments.forEach(enrollment => {
       const student = enrollment.user;
+      let totalDelivered = 0;
+
       const rowData = {
         name: student.name || 'Sin nombre',
         email: student.email || 'Sin correo',
+        group: classroom.name || 'Sin grupo',
       };
 
       classroom.practices.forEach(practice => {
         const submission = student.submissions.find(s => s.practiceId === practice.id);
         
-        // Marcador: si entregó (estado pendiente o calificada), ponemos "X", si no, vacío
         let statusMark = '';
         if (submission && (submission.reviewStatus === 'pendiente' || submission.reviewStatus === 'calificada')) {
-           statusMark = 'X';
+           statusMark = '.'; // Punto en lugar de X
+           totalDelivered++;
         }
         
         rowData[`practice_${practice.id}`] = statusMark;
       });
 
+      rowData['total'] = totalDelivered;
+
       const row = worksheet.addRow(rowData);
       
-      // Centrar las "X"
+      // Centrar y dar color al grupo
+      const groupColIndex = worksheet.getColumn('group').number;
+      row.getCell(groupColIndex).fill = {
+        type: 'pattern',
+        pattern: 'solid',
+        fgColor: { argb: 'FFE5E7EB' } // Light gray para diferenciarlo
+      };
+      
       classroom.practices.forEach(practice => {
         const colIndex = worksheet.getColumn(`practice_${practice.id}`).number;
         row.getCell(colIndex).alignment = { horizontal: 'center' };
+        row.getCell(colIndex).font = { bold: true, size: 14 }; // Hacer el punto más visible
       });
+
+      const totalColIndex = worksheet.getColumn('total').number;
+      row.getCell(totalColIndex).alignment = { horizontal: 'center' };
+      row.getCell(totalColIndex).font = { bold: true };
     });
 
     // Configurar respuesta HTTP para descargar archivo
