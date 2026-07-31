@@ -980,9 +980,9 @@ export const exportClassroomExcel = async (req, res, next) => {
     const superHeaderRow = worksheet.getRow(1);
     const mainHeaderRow = worksheet.getRow(2);
 
-    // Encabezado general del Grupo
-    const groupText = classroom.group ? ` | grupo: ${classroom.group}` : '';
-    superHeaderRow.getCell(1).value = `${classroom.name}${groupText}`;
+    // Encabezado general del Grupo (solo "GRUPO A")
+    const groupName = classroom.group ? `GRUPO ${classroom.group}` : 'GRUPO';
+    superHeaderRow.getCell(1).value = groupName;
     worksheet.mergeCells(1, 1, 1, 2); // Unir columnas Name y Email
     superHeaderRow.getCell(1).alignment = { horizontal: 'center', vertical: 'middle' };
     superHeaderRow.getCell(1).font = { bold: true, color: { argb: 'FFFFFFFF' } };
@@ -1015,13 +1015,32 @@ export const exportClassroomExcel = async (req, res, next) => {
       };
     });
 
+    // Helper para formatear nombre: "Apellidos Nombres"
+    const formatLastNameFirst = (fullName) => {
+      if (!fullName) return '';
+      const parts = fullName.trim().split(/\s+/);
+      if (parts.length <= 1) return fullName;
+      if (parts.length === 2) return `${parts[1]} ${parts[0]}`;
+      if (parts.length === 3) return `${parts[2]} ${parts[0]} ${parts[1]}`; // Asume 2 nombres, 1 apellido (muy común) o 1 nombre, 2 apellidos. Lo más seguro es mandar el último al principio.
+      // Si son 4 o más, asumimos que los últimos 2 son apellidos
+      const surnames = parts.slice(-2).join(' ');
+      const names = parts.slice(0, -2).join(' ');
+      return `${surnames} ${names}`;
+    };
+
+    // Preparar estudiantes con su nombre formateado y ordenar alfabéticamente
+    const sortedEnrollments = classroom.enrollments.map(enrollment => ({
+      ...enrollment,
+      formattedName: formatLastNameFirst(enrollment.user.name || 'Sin nombre')
+    })).sort((a, b) => a.formattedName.localeCompare(b.formattedName));
+
     // Agregar filas
-    classroom.enrollments.forEach(enrollment => {
+    sortedEnrollments.forEach(enrollment => {
       const student = enrollment.user;
       let totalDelivered = 0;
 
       const rowData = {
-        name: student.name || 'Sin nombre',
+        name: enrollment.formattedName,
         email: student.email || 'Sin correo',
       };
 
