@@ -91,7 +91,6 @@ Instrucciones para ti:
     };
 
     const response = await generateContentWithRetry({
-      model: 'gemini-3.5-flash',
       contents: prompt,
       config: {
         responseMimeType: "application/json",
@@ -101,10 +100,10 @@ Instrucciones para ti:
 
     return response.text;
   } catch (error) {
-    console.error("Error al generar enunciado con Gemini:", error);
+    console.error("Error al generar enunciado con IA:", error);
     // Lanzamos el error para que el controlador (submission) falle 
     // y no guarde un texto de error roto en la base de datos.
     // Así, el alumno puede refrescar la página y volver a intentar.
-    throw new Error("Lumi (IA) no está disponible en este momento para crear tu enunciado. Por favor, espera unos segundos e intenta ingresar nuevamente.");
+    throw new Error("El asistente de IA no está disponible en este momento para crear tu enunciado. Por favor, espera unos segundos e intenta ingresar nuevamente.");
   }
 };

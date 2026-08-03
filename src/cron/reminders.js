@@ -3,7 +3,7 @@ import { prisma } from '../config/db.js';
 import { sendReminderEmail } from '../services/email.service.js';
 
 export const startRemindersCron = () => {
-  // Ejecutar todos los días a las 12:00 AM (0 0 * * *)
+  // Ejecutar todos los días a las 12:00 AM
   cron.schedule('0 0 * * *', async () => {
     console.log('Ejecutando Cron Job de Recordatorios y Mantenimiento de BD...');
     try {

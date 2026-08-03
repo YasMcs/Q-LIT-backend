@@ -1,5 +1,5 @@
 import { prisma } from '../config/db.js';
-import { generateUniqueProblem } from '../services/gemini.service.js';
+import { generateUniqueProblem } from '../services/problemGenerator.service.js';
 
 export const startPractice = async (req, res, next) => {
   try {
